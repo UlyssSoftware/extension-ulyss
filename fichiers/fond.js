@@ -2,11 +2,12 @@
 // L'extension est chargée depuis Téléchargements\ulyss-chiffrage-extension. Quand une version plus récente est publiée
 // récente (dépôt GitHub UlyssSoftware/extension-ulyss), ce script contrôle chaque fichier publié (empreinte), le télécharge dans ce dossier à la place de l'ancien, puis la page
 // demande le rechargement de l'extension. Seuls des fichiers de ce site, aux noms simples, dans ce seul dossier.
-// La liste des versions est lue dans le dépôt (branche main). Les fichiers, eux, sont téléchargés par jsDelivr, à l'étiquette de la
+// La liste des versions est lue dans le dépôt (branche main). Les fichiers, eux, sont téléchargés par jsDelivr, au commit de la
 // version : GitHub « brut » annonce tout en text/plain, et Chrome sous Windows renomme alors chaque fichier téléchargé en .txt
 // (constaté le 23/11/2026 : content.txt, manifest.txt…). jsDelivr annonce le bon type pour .js et .json.
 var BASE = 'https://raw.githubusercontent.com/UlyssSoftware/extension-ulyss/main/fichiers/';
-function baseFichiers(version) { return 'https://cdn.jsdelivr.net/gh/UlyssSoftware/extension-ulyss@v' + version + '/fichiers/'; }
+// « reference » = l'empreinte du commit qui contient les fichiers de la version (donnée par version.json) : adresse figée, sans cache à attendre.
+function baseFichiers(reference) { return 'https://cdn.jsdelivr.net/gh/UlyssSoftware/extension-ulyss@' + reference + '/fichiers/'; }
 var DOSSIER = 'ulyss-chiffrage-extension';
 var DELAI = 5 * 60 * 1000;           // entre deux vérifications automatiques (la liste des versions ne pèse rien)
 var DELAI_ECHEC = 2 * 60 * 1000;     // après un échec, on réessaie plus tôt
@@ -31,7 +32,8 @@ function listePubliee() {
     var f = Array.isArray(l.fichiers) ? l.fichiers.map(String) : [], e = l.empreintes || {};
     if (!/^\d+\.\d+\.\d+$/.test(String(l.version || ''))) throw new Error('numéro de version illisible dans la liste');
     if (!f.length || f.length > 40 || f.indexOf('manifest.json') < 0 || f.some(function (n) { return !/^[A-Za-z0-9][A-Za-z0-9._-]{0,60}$/.test(n) || !/^[0-9a-f]{64}$/.test(String(e[n] || '')); })) throw new Error('liste de fichiers illisible');
-    return { version: String(l.version), fichiers: f, empreintes: e, date: String(l.date || '') };
+    if (!/^[0-9a-f]{40}$/.test(String(l.reference || ''))) throw new Error('référence de publication absente de la liste');
+    return { version: String(l.version), fichiers: f, empreintes: e, date: String(l.date || ''), reference: String(l.reference) };
   });
 }
 function empreinte(tampon) {
@@ -49,9 +51,9 @@ function finDuTelechargement(id) {
     })();
   });
 }
-function telecharger(nom, version) {
+function telecharger(nom, reference) {
   return new Promise(function (ok) {
-    chrome.downloads.download({ url: baseFichiers(version) + nom, filename: DOSSIER + '/' + nom, conflictAction: 'overwrite', saveAs: false }, function (id) {
+    chrome.downloads.download({ url: baseFichiers(reference) + nom, filename: DOSSIER + '/' + nom, conflictAction: 'overwrite', saveAs: false }, function (id) {
       if (chrome.runtime.lastError || id === undefined) return ok({ motif: (chrome.runtime.lastError || {}).message || 'refusé' });
       finDuTelechargement(id).then(function (d) {
         try { chrome.downloads.erase({ id: id }, function () { void chrome.runtime.lastError; }); } catch (e) {}   // retire la ligne de l'historique, pas le fichier
@@ -78,7 +80,7 @@ function verifier(force) {
         // 1. Tout contrôler avant d'écrire quoi que ce soit : un dépôt en cours sur le site ne doit pas donner une extension à moitié à jour.
         return liste.fichiers.reduce(function (suite, nom) {
           return suite.then(function () {
-            return fetch(baseFichiers(liste.version) + nom, { cache: 'no-store' }).then(function (r) {
+            return fetch(baseFichiers(liste.reference) + nom, { cache: 'no-store' }).then(function (r) {
               if (!r.ok) throw new Error('fichier « ' + nom + ' » pas encore disponible (' + r.status + ')');
               return r.arrayBuffer();
             }).then(empreinte).then(function (h) { if (h !== liste.empreintes[nom]) throw new Error('fichier « ' + nom + ' » différent de celui annoncé (dépôt en cours ?)'); });
@@ -96,7 +98,7 @@ function verifier(force) {
           return ordre.reduce(function (suite, nom) {
             return suite.then(function () {
               if (echecs.length) return;
-              return telecharger(nom, liste.version).then(function (t) {
+              return telecharger(nom, liste.reference).then(function (t) {
                 if (t.motif) { echecs.push(nom + ' : ' + t.motif); return; }
                 if (!dossier) dossier = t.chemin.replace(/[\\/][^\\/]+$/, '');
                 if (nom === 'manifest.json' || ailleurs) return;
