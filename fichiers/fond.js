@@ -2,7 +2,11 @@
 // L'extension est chargée depuis Téléchargements\ulyss-chiffrage-extension. Quand une version plus récente est publiée
 // récente (dépôt GitHub UlyssSoftware/extension-ulyss), ce script contrôle chaque fichier publié (empreinte), le télécharge dans ce dossier à la place de l'ancien, puis la page
 // demande le rechargement de l'extension. Seuls des fichiers de ce site, aux noms simples, dans ce seul dossier.
+// La liste des versions est lue dans le dépôt (branche main). Les fichiers, eux, sont téléchargés par jsDelivr, à l'étiquette de la
+// version : GitHub « brut » annonce tout en text/plain, et Chrome sous Windows renomme alors chaque fichier téléchargé en .txt
+// (constaté le 23/11/2026 : content.txt, manifest.txt…). jsDelivr annonce le bon type pour .js et .json.
 var BASE = 'https://raw.githubusercontent.com/UlyssSoftware/extension-ulyss/main/fichiers/';
+function baseFichiers(version) { return 'https://cdn.jsdelivr.net/gh/UlyssSoftware/extension-ulyss@v' + version + '/fichiers/'; }
 var DOSSIER = 'ulyss-chiffrage-extension';
 var DELAI = 5 * 60 * 1000;           // entre deux vérifications automatiques (la liste des versions ne pèse rien)
 var DELAI_ECHEC = 2 * 60 * 1000;     // après un échec, on réessaie plus tôt
@@ -47,7 +51,7 @@ function finDuTelechargement(id) {
 }
 function telecharger(nom, version) {
   return new Promise(function (ok) {
-    chrome.downloads.download({ url: BASE + nom + '?v=' + version, filename: DOSSIER + '/' + nom, conflictAction: 'overwrite', saveAs: false }, function (id) {
+    chrome.downloads.download({ url: baseFichiers(version) + nom, filename: DOSSIER + '/' + nom, conflictAction: 'overwrite', saveAs: false }, function (id) {
       if (chrome.runtime.lastError || id === undefined) return ok({ motif: (chrome.runtime.lastError || {}).message || 'refusé' });
       finDuTelechargement(id).then(function (d) {
         try { chrome.downloads.erase({ id: id }, function () { void chrome.runtime.lastError; }); } catch (e) {}   // retire la ligne de l'historique, pas le fichier
@@ -74,8 +78,8 @@ function verifier(force) {
         // 1. Tout contrôler avant d'écrire quoi que ce soit : un dépôt en cours sur le site ne doit pas donner une extension à moitié à jour.
         return liste.fichiers.reduce(function (suite, nom) {
           return suite.then(function () {
-            return fetch(BASE + nom + '?v=' + liste.version, { cache: 'no-store' }).then(function (r) {
-              if (!r.ok) throw new Error('fichier « ' + nom + ' » absent du site (' + r.status + ')');
+            return fetch(baseFichiers(liste.version) + nom, { cache: 'no-store' }).then(function (r) {
+              if (!r.ok) throw new Error('fichier « ' + nom + ' » pas encore disponible (' + r.status + ')');
               return r.arrayBuffer();
             }).then(empreinte).then(function (h) { if (h !== liste.empreintes[nom]) throw new Error('fichier « ' + nom + ' » différent de celui annoncé (dépôt en cours ?)'); });
           });
@@ -128,7 +132,7 @@ function enB64(tampon) { var o = new Uint8Array(tampon), t = ''; for (var i = 0;
 // constaté le 23/11/2026 avec l'ancien nom « tarifs.chiffre »), il est lu directement dans le dépôt : le poste n'est jamais bloqué.
 function fichierTarifs() {
   var json = function (u) { return fetch(u + (u.indexOf('?') < 0 ? '?' : '&') + 't=' + Date.now(), { cache: 'no-store' }).then(function (r) { if (!r.ok) throw new Error('absent'); return r.json(); }).then(function (j) { if (!j || !j.sel || !j.iv || !j.donnees) throw new Error('illisible'); return j; }); };
-  return json(chrome.runtime.getURL('tarifs.json')).catch(function () { return json(chrome.runtime.getURL('tarifs.chiffre')); })
+  return json(chrome.runtime.getURL('tarifs.json')).catch(function () { return json(chrome.runtime.getURL('tarifs.chiffre')); }).catch(function () { return json(chrome.runtime.getURL('tarifs.txt')); })
     .catch(function () { return json(BASE + 'tarifs.json'); })
     .catch(function () { throw new Error('fichier des tarifs introuvable sur ce poste et dans le dépôt'); });
 }

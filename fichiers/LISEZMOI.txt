@@ -159,3 +159,11 @@ VERSION 1.4.2 — « MISE À JOUR » ÉCRIT SOUS LA VERSION
 - Quand une version plus récente est publiée et pas encore en service, « ext x.y.z » passe en pastille rouge et, dessous,
   « Mise à jour x.y.z à installer » s'affiche en toutes lettres. Un clic l'installe.
 - L'extension vérifie désormais toutes les 5 minutes au plus (au lieu de 30).
+
+VERSION 1.4.3 — CORRECTION DES MISES À JOUR DEPUIS GITHUB
+- Les versions 1.4.0 à 1.4.2 ne pouvaient pas se mettre à jour : GitHub annonce ses fichiers comme du texte, et Chrome sous Windows
+  les enregistrait alors en .txt (content.txt, manifest.txt…) au lieu de remplacer les vrais fichiers.
+- Les fichiers sont désormais téléchargés par jsDelivr (qui lit le même dépôt GitHub et annonce le bon type) ; la liste des
+  versions reste lue dans le dépôt.
+- Les fichiers .txt en trop dans le dossier de l'extension (content.txt, engine.txt, fond.txt, manifest.txt, tarifs.txt) ne servent
+  à rien et peuvent être supprimés.
