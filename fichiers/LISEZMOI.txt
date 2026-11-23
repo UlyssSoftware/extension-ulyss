@@ -170,3 +170,9 @@ VERSION 1.4.3 — CORRECTION DES MISES À JOUR DEPUIS GITHUB
 
 VERSION 1.4.4 — VERSION DE CONTRÔLE
 - Aucun changement visible : sert à vérifier qu'un poste Windows reçoit une mise à jour par le nouveau circuit sans intervention.
+
+VERSION 1.4.5 — MOYENS PAR ÉTAPE : VOLUME ET SPÉCIFICITÉS DES VÉHICULES
+- Chaque véhicule est affiché avec son volume et, entre parenthèses, les spécificités demandées : « 1 PL 30 m³ (Hayon, Baché) ».
+- Un changement de volume ou de spécificité d'une étape à la suivante est compté et surligné, comme un changement de véhicule.
+- Tous les types de véhicule sont maintenant affichés (remorque, caisse mobile…), pas seulement VL, PL et monte-meuble.
+- Ces détails sont lus dans le formulaire de chaque étape (lecture seule) : ils s'affichent une seconde ou deux après la page.

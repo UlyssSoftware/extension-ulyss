@@ -568,6 +568,44 @@
   // lisible même quand le créneau est trop court pour que le calendrier d'Ulyss montre les moyens. Ce qui change par rapport à
   // l'étape précédente est surligné : un écart n'est pas forcément une erreur, il doit seulement se voir tout de suite.
   var PAR_COLONNE = 4;   // étapes par colonne dans le détail déplié
+  // Détail des véhicules de chaque étape (demande du 23/11/2026 : « 1 PL » ne suffit pas, il faut le volume et les spécificités).
+  // Le calendrier ne donne que des compteurs : le type, le volume et les caractéristiques sont lus dans le formulaire de chaque
+  // étape (lecture seule, quatre à la fois), une fois par état de la pré-planification.
+  var moyensDetail = { sig: null, parItem: {}, pret: false };
+  function sigleVehicule(type) {
+    var t = String(type || '').replace(/\s+/g, ' ').trim();
+    return /l[ée]ger/i.test(t) ? 'VL' : /lourd/i.test(t) ? 'PL' : /monte/i.test(t) ? 'MM' : t || 'véhicule';
+  }
+  function vehiculesDuFormulaire(f) {
+    return [].slice.call(f.querySelectorAll('select[name*="schedule_vehicules_attributes"][name$="[vehicule_type_id]"]')).map(function (sel) {
+      var base = sel.name.replace(/\[vehicule_type_id\]$/, '');
+      var retire = f.querySelector('input[name="' + base + '[_destroy]"]');
+      if (retire && /^(1|true)$/.test(retire.value)) return null;
+      var vol = f.querySelector('input[name="' + base + '[volume_in_float]"]'), car = f.querySelector('select[name="' + base + '[characteristic_ids][]"]');
+      var v = vol ? nombre(vol.value) : 0;
+      var texte = sigleVehicule(sel.selectedOptions[0] ? sel.selectedOptions[0].textContent : '') + (v > 0 ? ' ' + fr(v) + ' m³' : '');
+      var specs = car ? [].slice.call(car.selectedOptions).map(function (o) { return o.textContent.replace(/\s+/g, ' ').trim(); }).filter(Boolean) : [];
+      return texte + (specs.length ? ' (' + specs.join(', ') + ')' : '');
+    }).filter(Boolean);
+  }
+  // Regroupe les véhicules identiques : « 2 PL 50 m³ (Hayon) + 1 VL 20 m³ ».
+  function texteVehicules(liste) {
+    var n = {}, ordre = [];
+    liste.forEach(function (t) { if (!n[t]) { n[t] = 0; ordre.push(t); } n[t]++; });
+    return ordre.sort().map(function (t) { return n[t] + ' ' + t; }).join(' + ') || 'aucun véhicule';
+  }
+  function chargerDetailMoyens(brut, etapes) {
+    if (moyensDetail.sig === brut) return;
+    var etat = moyensDetail = { sig: brut, parItem: {}, pret: false };
+    var file = etapes.filter(function (e) { return e.url && e.item; }), i = 0, actifs = 0;
+    var suite = function () {
+      if (moyensDetail !== etat) return;   // la pré-planification a changé entre-temps : cette lecture ne sert plus
+      if (i >= file.length) { if (!actifs && !etat.pret) { etat.pret = true; poserCoherence(); } return; }
+      var e = file[i++]; actifs++;
+      lireFormulaireEtape(e).then(function (f) { etat.parItem[e.item] = vehiculesDuFormulaire(f); }, function () { etat.parItem[e.item] = null; }).then(function () { actifs--; suite(); });
+    };
+    for (var k = 0; k < 4; k++) suite();
+  }
   function poserCoherence() {
     var cal = document.querySelector('[data-controller~="calendar"]'), bloc = document.getElementById('gc-coherence');
     if (!(CHEMIN.test(location.pathname) || window.__chiffrageApercu) || !cal || !cal.parentElement) { if (bloc) bloc.remove(); return; }
@@ -575,24 +613,33 @@
     var titre = document.getElementById('phase-title'), ligne = titre && titre.parentElement ? titre.parentElement.parentElement : null;
     var enPlace = function () { return ligne ? bloc.parentElement === ligne : bloc.nextElementSibling === cal; };
     var brut = cal.getAttribute('data-events') || '[]';
-    if (bloc && bloc.getAttribute('data-sig') === brut && enPlace()) return;
+    var sig = brut + (moyensDetail.sig === brut && moyensDetail.pret ? '|détail' : '');
+    if (bloc && bloc.getAttribute('data-sig') === sig && enPlace()) return;
     var evs = [];
     try { evs = JSON.parse(brut); } catch (e) {}
     var etapes = evs.filter(function (e) { return e.start && e.end && !/^\s*pause\s*$/i.test(e.name || ''); }).sort(function (a, b) { return a.start < b.start ? -1 : a.start > b.start ? 1 : 0; }).map(function (e) {
-      return { jour: Number(String(e.start).slice(8, 10)) || 1, debut: String(e.start).slice(11, 16), fin: String(e.end).slice(11, 16), nom: e.name || '', hommes: e.nbEmp || 0, vl: e.nbVehLight || 0, pl: e.nbVehHeavy || 0, mm: e.nbLift || 0 };
+      return { url: e.url || '', item: String(e.id || '').replace(/\D/g, ''), jour: Number(String(e.start).slice(8, 10)) || 1, debut: String(e.start).slice(11, 16), fin: String(e.end).slice(11, 16), nom: e.name || '', hommes: e.nbEmp || 0, vl: e.nbVehLight || 0, pl: e.nbVehHeavy || 0, mm: e.nbLift || 0 };
     });
     var ouvert = !!(bloc && bloc.querySelector('details[open]'));
     if (!bloc) { bloc = document.createElement('div'); bloc.id = 'gc-coherence'; }
-    bloc.setAttribute('data-sig', brut);
+    bloc.setAttribute('data-sig', sig);
     if (!enPlace()) {
       if (ligne) { if (getComputedStyle(ligne).position === 'static') ligne.style.position = 'relative'; ligne.appendChild(bloc); }
       else cal.parentElement.insertBefore(bloc, cal);
     }
     if (etapes.length < 2) { bloc.hidden = true; bloc.innerHTML = ''; return; }
-    var vehicules = function (x) { var m = []; if (x.vl) m.push(x.vl + ' VL'); if (x.pl) m.push(x.pl + ' PL'); if (x.mm) m.push(x.mm + ' MM'); return m.join(' + ') || 'aucun véhicule'; };
+    chargerDetailMoyens(brut, etapes);
+    // Tant que le détail n'est pas lu (ou s'il est illisible pour une étape), on affiche les compteurs du calendrier, suivis de « … ».
+    var detailPret = moyensDetail.sig === brut && moyensDetail.pret;
+    var vehicules = function (x) {
+      var d = detailPret ? moyensDetail.parItem[x.item] : null;
+      if (d) return texteVehicules(d);
+      var m = []; if (x.vl) m.push(x.vl + ' VL'); if (x.pl) m.push(x.pl + ' PL'); if (x.mm) m.push(x.mm + ' MM');
+      return (m.join(' + ') || 'aucun véhicule') + (!detailPret ? ' …' : d === null ? ' (détail illisible)' : '');
+    };
     var ecartsH = 0, ecartsV = 0, AMBRE = 'background:#fdecc8;color:#7a4b00;font-weight:600';
     var lignes = etapes.map(function (x, i) {
-      var p = etapes[i - 1], dh = !!p && p.hommes !== x.hommes, dv = !!p && (p.vl !== x.vl || p.pl !== x.pl || p.mm !== x.mm);
+      var p = etapes[i - 1], dh = !!p && p.hommes !== x.hommes, dv = !!p && vehicules(p) !== vehicules(x);
       if (dh) ecartsH++; if (dv) ecartsV++;
       var c = 'padding:4px 8px;border-top:1px solid #e3e8ee;white-space:nowrap';
       return '<tr><td style="' + c + '">Jour ' + x.jour + '</td><td style="' + c + ';font-variant-numeric:tabular-nums">' + x.debut + '–' + x.fin + '</td><td style="' + c + ';max-width:150px;overflow:hidden;text-overflow:ellipsis" title="' + echappe(x.nom) + '">' + echappe(x.nom) + '</td>' +
@@ -609,7 +656,7 @@
       (n ? 'Moyens : ' + n + ' changement' + (n > 1 ? 's' : '') + ' d\'une étape à la suivante (' + detail + ')' : 'Moyens identiques sur les ' + etapes.length + ' étapes') + '</summary>' +
       '<div style="position:absolute;top:calc(100% + 6px);left:50%;transform:translateX(-50%);width:max-content;max-width:min(92vw,1500px);background:#fff;border:1px solid #cfd6dd;border-radius:8px;box-shadow:0 8px 24px rgba(15,23,30,.18)">' +
       '<div style="display:flex;flex-wrap:wrap;gap:0;padding:6px 4px 0;max-height:60vh;overflow:auto">' + colonnes.join('') + '</div>' +
-      '<p style="margin:0;padding:6px 12px 8px;color:#5a6876;font-size:12.5px">VL véhicule léger · PL poids lourd · MM monte-meuble. En surbrillance : ce qui change par rapport à l\'étape précédente. Information seule.</p></div></details>';
+      '<p style="margin:0;padding:6px 12px 8px;color:#5a6876;font-size:12.5px">VL véhicule léger · PL poids lourd · MM monte-meuble, avec le volume et, entre parenthèses, les spécificités demandées. En surbrillance : ce qui change par rapport à l\'étape précédente. Information seule.</p></div></details>';
   }
   // Un clic ailleurs dans la page replie le détail des moyens.
   document.addEventListener('click', function (e) { var b = document.getElementById('gc-coherence'), d = b && b.querySelector('details[open]'); if (d && !b.contains(e.target)) d.removeAttribute('open'); });
