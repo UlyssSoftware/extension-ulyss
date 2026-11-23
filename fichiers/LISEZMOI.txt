@@ -167,3 +167,6 @@ VERSION 1.4.3 — CORRECTION DES MISES À JOUR DEPUIS GITHUB
   versions reste lue dans le dépôt.
 - Les fichiers .txt en trop dans le dossier de l'extension (content.txt, engine.txt, fond.txt, manifest.txt, tarifs.txt) ne servent
   à rien et peuvent être supprimés.
+
+VERSION 1.4.4 — VERSION DE CONTRÔLE
+- Aucun changement visible : sert à vérifier qu'un poste Windows reçoit une mise à jour par le nouveau circuit sans intervention.
