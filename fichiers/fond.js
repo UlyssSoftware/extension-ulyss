@@ -82,12 +82,25 @@ function verifier(force) {
         }, Promise.resolve()).then(function () {
           // 2. Télécharger, le manifeste en dernier : un rechargement au milieu ne lirait pas un manifeste neuf avec des fichiers anciens.
           var ordre = liste.fichiers.filter(function (n) { return n !== 'manifest.json'; }).concat(['manifest.json']), dossier = '', echecs = [];
+          // Relit un fichier juste téléchargé dans le dossier de l'extension : s'il n'y est pas ou n'a pas la bonne empreinte, on s'arrête
+          // avant le manifeste (sauf si l'extension est chargée d'un autre dossier, cas traité plus bas).
+          var relu = function (nom) {
+            return fetch(chrome.runtime.getURL(nom) + '?t=' + Date.now(), { cache: 'no-store' }).then(function (r) { return r.ok ? r.arrayBuffer().then(empreinte) : ''; }).catch(function () { return ''; });
+          };
+          var premier = true, ailleurs = false;
           discret(true);
           return ordre.reduce(function (suite, nom) {
             return suite.then(function () {
               if (echecs.length) return;
               return telecharger(nom, liste.version).then(function (t) {
-                if (t.motif) echecs.push(nom + ' : ' + t.motif); else if (!dossier) dossier = t.chemin.replace(/[\\/][^\\/]+$/, '');
+                if (t.motif) { echecs.push(nom + ' : ' + t.motif); return; }
+                if (!dossier) dossier = t.chemin.replace(/[\\/][^\\/]+$/, '');
+                if (nom === 'manifest.json' || ailleurs) return;
+                return relu(nom).then(function (h) {
+                  if (h === liste.empreintes[nom]) { premier = false; return; }
+                  if (premier) { ailleurs = true; return; }   // dès le premier fichier, rien n'arrive dans le dossier chargé : extension installée ailleurs
+                  echecs.push(nom + ' : enregistré sous un autre nom ou incomplet');
+                });
               });
             });
           }, Promise.resolve()).then(function () {
@@ -111,7 +124,14 @@ function verifier(force) {
 var CLE_TARIFS = 'gc-cle';
 function octets(b64) { var t = atob(b64), o = new Uint8Array(t.length); for (var i = 0; i < t.length; i++) o[i] = t.charCodeAt(i); return o; }
 function enB64(tampon) { var o = new Uint8Array(tampon), t = ''; for (var i = 0; i < o.length; i++) t += String.fromCharCode(o[i]); return btoa(t); }
-function fichierTarifs() { return fetch(chrome.runtime.getURL('tarifs.chiffre') + '?t=' + Date.now(), { cache: 'no-store' }).then(function (r) { if (!r.ok) throw new Error('fichier des tarifs absent'); return r.json(); }); }
+// Le fichier chiffré est lu dans le dossier de l'extension ; s'il n'y est pas (téléchargement refusé ou renommé par le navigateur,
+// constaté le 23/11/2026 avec l'ancien nom « tarifs.chiffre »), il est lu directement dans le dépôt : le poste n'est jamais bloqué.
+function fichierTarifs() {
+  var json = function (u) { return fetch(u + (u.indexOf('?') < 0 ? '?' : '&') + 't=' + Date.now(), { cache: 'no-store' }).then(function (r) { if (!r.ok) throw new Error('absent'); return r.json(); }).then(function (j) { if (!j || !j.sel || !j.iv || !j.donnees) throw new Error('illisible'); return j; }); };
+  return json(chrome.runtime.getURL('tarifs.json')).catch(function () { return json(chrome.runtime.getURL('tarifs.chiffre')); })
+    .catch(function () { return json(BASE + 'tarifs.json'); })
+    .catch(function () { throw new Error('fichier des tarifs introuvable sur ce poste et dans le dépôt'); });
+}
 function dechiffrer(fichier, cleBrute) {
   return crypto.subtle.importKey('raw', cleBrute, 'AES-GCM', false, ['decrypt']).then(function (k) {
     return crypto.subtle.decrypt({ name: 'AES-GCM', iv: octets(fichier.iv) }, k, octets(fichier.donnees));

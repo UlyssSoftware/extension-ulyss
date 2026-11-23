@@ -6,7 +6,7 @@ D=os.path.dirname(os.path.abspath(__file__)); SRC=os.path.join(D,'ulyss-chiffrag
 # code ne change pas, les postes n'ont pas à le ressaisir. Le code est lu dans prive/code.txt, jamais écrit ailleurs.
 import subprocess, base64, hashlib as _h
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM
-PRIVE=os.path.join(D,'prive'); CHIFFRE=os.path.join(SRC,'tarifs.chiffre'); ITER=600000
+PRIVE=os.path.join(D,'prive'); CHIFFRE=os.path.join(SRC,'tarifs.json'); ITER=600000
 clair=subprocess.run(['node',os.path.join(D,'tarifs-en-json.js'),os.path.join(PRIVE,'grilles.js'),os.path.join(PRIVE,'forfaits.js')],capture_output=True,check=True).stdout
 code=open(os.path.join(PRIVE,'code.txt'),encoding='utf8').read()
 ancien=json.load(open(CHIFFRE)) if os.path.exists(CHIFFRE) else None

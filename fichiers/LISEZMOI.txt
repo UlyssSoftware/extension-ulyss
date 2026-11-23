@@ -145,7 +145,12 @@ VERSION 1.3.2 — PASTILLE ROUGE SI L'EXTENSION N'EST PAS À JOUR
   le message dit quoi faire.
 
 VERSION 1.4.0 — TARIFS CHIFFRÉS, PUBLICATION PAR GITHUB
-- Les grilles de prix et les forfaits ne sont plus lisibles dans les fichiers de l'extension : ils sont dans « tarifs.chiffre »,
+- Les grilles de prix et les forfaits ne sont plus lisibles dans les fichiers de l'extension : ils sont dans « tarifs.json »,
   chiffré. Au premier clic sur « Grille » ou « Forfait », le poste demande le code d'accès aux tarifs, une seule fois.
 - Les mises à jour sont désormais lues dans le dépôt GitHub UlyssSoftware/extension-ulyss (plus sur le FTP du site).
 - Les anciens fichiers « grilles.js » et « forfaits.js » qui restent dans le dossier du poste ne servent plus.
+
+VERSION 1.4.1 — CORRECTION « TARIFS ILLISIBLES : FAILED TO FETCH »
+- Le fichier chiffré des tarifs s'appelle désormais « tarifs.json » (l'ancien nom n'arrivait pas dans le dossier de l'extension
+  sur certains postes). S'il manque malgré tout, il est lu directement dans le dépôt.
+- Mise à jour : chaque fichier téléchargé est relu dans le dossier avant de changer de version.

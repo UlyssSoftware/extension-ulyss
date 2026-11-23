@@ -75,7 +75,7 @@
     });
   }
   // ---------- Tarifs : chiffrés dans l'extension, lus avec le code d'accès saisi une fois par poste ----------
-  // Les grilles de prix et les forfaits ne sont plus dans le code (qui est public) mais dans « tarifs.chiffre ». Le service worker
+  // Les grilles de prix et les forfaits ne sont plus dans le code (qui est public) mais dans « tarifs.json ». Le service worker
   // les déchiffre avec la clé gardée sur le poste ; sans elle, « Grille » et « Forfait » demandent le code d'accès.
   function tarifsPrets(sansForfaits) { return typeof GRILLES_REFERENCE !== 'undefined' && !!GRILLES_REFERENCE && (!!sansForfaits || (typeof FORFAITS !== 'undefined' && !!FORFAITS)); }
   function poserTarifs(t) { if (t && t.grilles && t.forfaits) { window.GRILLES_REFERENCE = t.grilles; window.FORFAITS = t.forfaits; } return tarifsPrets(); }
