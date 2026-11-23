@@ -154,3 +154,8 @@ VERSION 1.4.1 — CORRECTION « TARIFS ILLISIBLES : FAILED TO FETCH »
 - Le fichier chiffré des tarifs s'appelle désormais « tarifs.json » (l'ancien nom n'arrivait pas dans le dossier de l'extension
   sur certains postes). S'il manque malgré tout, il est lu directement dans le dépôt.
 - Mise à jour : chaque fichier téléchargé est relu dans le dossier avant de changer de version.
+
+VERSION 1.4.2 — « MISE À JOUR » ÉCRIT SOUS LA VERSION
+- Quand une version plus récente est publiée et pas encore en service, « ext x.y.z » passe en pastille rouge et, dessous,
+  « Mise à jour x.y.z à installer » s'affiche en toutes lettres. Un clic l'installe.
+- L'extension vérifie désormais toutes les 5 minutes au plus (au lieu de 30).

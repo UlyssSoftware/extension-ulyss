@@ -139,7 +139,9 @@
     if (!v || !EXT) return;
     var enRetard = !!etatMaj && !!etatMaj.publiee && plusRecente(etatMaj.publiee, EXT.getManifest().version) && /^(telechargee|hors_dossier|echec)$/.test(etatMaj.etat);
     var texte = 'ext ' + EXT.getManifest().version;
-    v.innerHTML = enRetard ? '<span style="display:inline-block;padding:4px 9px;border-radius:999px;background:#c62828;color:#fff;font-weight:600">' + echappe(texte) + '</span>' : echappe(texte);
+    // En retard : la pastille rouge, et dessous, en toutes lettres, « Mise à jour » avec le numéro publié (demande du 23/11/2026).
+    v.innerHTML = enRetard ? '<span style="display:inline-block;padding:4px 9px;border-radius:999px;background:#c62828;color:#fff;font-weight:600">' + echappe(texte) + '</span>' +
+      '<span style="display:block;margin-top:5px;color:#c62828;font-weight:700;white-space:normal">Mise à jour<br>' + echappe(etatMaj.publiee) + ' à installer</span>' : echappe(texte);
     v.title = enRetard ? 'Extension Ulyss : la version ' + etatMaj.publiee + ' est publiée — cliquez pour mettre à jour' : 'Extension Ulyss : cliquez pour vérifier les mises à jour';
   }
   function ouvrirVersion(v) {
@@ -180,7 +182,7 @@
     demander({ type: 'gc-recharger' }).then(function () { setTimeout(function () { location.reload(); }, 8000); });
   }
   // À l'arrivée sur une page d'Ulyss : si une nouvelle version est déjà téléchargée, on la met en service tout de suite ; sinon on
-  // laisse l'extension vérifier (au plus toutes les 30 minutes) et télécharger — elle sera mise en service à la page suivante.
+  // laisse l'extension vérifier (au plus toutes les 5 minutes) et télécharger — elle sera mise en service à la page suivante.
   // Jamais de rechargement pendant qu'un panneau est ouvert ni qu'une validation est en attente, et une seule tentative par version.
   if (EXT) setTimeout(function () {
     demander({ type: 'gc-etat' }).then(function (e) {

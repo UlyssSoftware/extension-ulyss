@@ -4,8 +4,8 @@
 // demande le rechargement de l'extension. Seuls des fichiers de ce site, aux noms simples, dans ce seul dossier.
 var BASE = 'https://raw.githubusercontent.com/UlyssSoftware/extension-ulyss/main/fichiers/';
 var DOSSIER = 'ulyss-chiffrage-extension';
-var DELAI = 30 * 60 * 1000;          // entre deux vérifications automatiques
-var DELAI_ECHEC = 5 * 60 * 1000;     // après un échec, on réessaie plus tôt
+var DELAI = 5 * 60 * 1000;           // entre deux vérifications automatiques (la liste des versions ne pèse rien)
+var DELAI_ECHEC = 2 * 60 * 1000;     // après un échec, on réessaie plus tôt
 var CLE = 'gc-maj';
 
 function plusRecente(a, b) {
