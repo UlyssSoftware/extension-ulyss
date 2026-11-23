@@ -1,0 +1,151 @@
+Ulyss — Chiffrage, grille et forfait (version 1.0.0 : PRODUCTION https://ulyss.fr et staging)
+L'historique ci-dessous garde les notices des versions précédentes ; la section « VERSION 1.0.0 » en fin de fichier fait foi.
+
+Installation (Chrome ou Edge, sur ordinateur ou Surface)
+1. Décompresser le fichier zip dans un dossier qui restera en place.
+2. Ouvrir chrome://extensions (ou edge://extensions).
+3. Activer le « Mode développeur ».
+4. Cliquer « Charger l'extension non empaquetée » et choisir le dossier ulyss-chiffrage-grille.
+   Si une version précédente est déjà installée : la supprimer d'abord, ou remplacer le dossier
+   puis cliquer la flèche de rechargement de l'extension.
+5. Recharger l'onglet Ulyss.
+
+Utilisation
+1. Dans Ulyss (staging), ouvrir un dossier, onglet Pré-planification.
+2. Cliquer « Chiffrer avec la grille », à gauche du bouton « Estimation ».
+3. Le tarif s'affiche en tête. Le chevron règle la saison (B N H TH) et la grille.
+   « Moyens de la phase » se déplie pour voir, ajuster ou ajouter des moyens.
+   « Détails des postes » permet de corriger un montant et de choisir une remise (R0 R10 RX RN).
+4. Cliquer « Reporter dans l'estimation Ulyss » : l'estimation d'Ulyss s'ouvre avec les montants des sept postes.
+5. Vérifier, puis cliquer « Valider » dans Ulyss. Rien n'est enregistré avant ce clic.
+
+Modifier un tarif
+Ouvrir grilles.js avec un éditeur de texte, changer la valeur, enregistrer,
+puis cliquer la flèche de rechargement de l'extension dans chrome://extensions.
+
+Limites de cette version
+- Ne fonctionne que sur https://fraisseix.staging.unova.fr.
+- Ne traite que la création du devis par « Estimation », pas la modification d'un devis existant.
+- Les items ajoutés (item personnalisé, manutention garde-meubles) et la remise ne sont pas reportés :
+  Ulyss ne les accepte qu'une fois le devis créé. Ils restent à ajouter à la main dans l'onglet Devis.
+  En remise RN, les postes reportés sont majorés : ne pas oublier la ligne de remise.
+- Dossier à plusieurs phases : lecture non encore vérifiée sur un vrai dossier.
+- Découchers, panneaux et emballage ne sont pas dans la pré-planification.
+
+VERSION 0.5.0 — DOSSIERS À PLUSIEURS PHASES
+- Le panneau s'ouvre sur la phase affichée dans Ulyss (plus sur la première).
+- Après « Valider » dans Ulyss, un encadré en haut à droite propose « Chiffrer la phase … » : un clic ouvre la phase
+  suivante et le panneau, prêt à reporter.
+- À partir de la deuxième phase, Ulyss demande « Une estimation a déjà été calculée, voulez-vous écraser celle-ci ? ».
+  Le panneau répond « Continuer » à votre place : les phases déjà validées sont conservées (vérifié sur le staging).
+
+VERSION 0.5.1 — VÉHICULES CHIFFRÉS D'APRÈS LEUR TYPE
+- Le tarif d'un véhicule dépend de son type dans la pré-planification (Véhicule léger : tarif 20 m³ ; Poids lourd : tarif 50 m³),
+  plus du volume saisi sur l'événement. Pour changer de tarif, changez le type de la ligne dans le panneau.
+- 0.5.2 : un Poids lourd posé avec une remorque (type RQ) est chiffré comme un seul ensemble au tarif 100 m³.
+
+VERSION 0.7.0 — BOUTONS « GRILLE » ET « FORFAIT »
+- « Grille » : le chiffrage d'après la pré-planification, comme avant.
+- « Forfait » : location de monte-meuble avec opérateur. On choisit l'adresse (une étape déjà posée par Ulyss), la durée
+  (2 heures, demi-journée, journée), le nombre de déménageurs en plus, et on saisit le prix.
+  « Appliquer à la pré-planification » ÉCRIT dans Ulyss : l'étape devient « Location monte-meuble », à la durée du forfait,
+  avec 1 opérateur (+ les déménageurs demandés) et 1 monte-meuble ; les autres moyens de l'étape sont retirés.
+  Le panneau relit Ulyss et affiche ce qu'il y trouve. « Reporter le prix » ouvre ensuite l'estimation :
+  monte-meuble dans « Monte-meuble », déménageurs en plus dans « Main d'oeuvre », le reste à zéro.
+- 0.7.1 : tarifs du bon de commande 2026 (mêmes montants pour les trois sociétés) pour les quatre durées, le déménageur
+  supplémentaire et les panneaux de stationnement.
+  Les prix restent modifiables dans le panneau. Pour les changer durablement : fichier forfaits.js.
+- 0.8.0 : le forfait crée les étapes qui manquent, à la même adresse. ½ journée = 8 h–12 h ; 1 journée = 8 h–12 h,
+  pause 12 h–14 h, 14 h–18 h ; 2 journées = la même chose sur deux jours. L'étape déjà posée par Ulyss sert de première
+  plage ; aucune étape n'est supprimée, et les étapes déjà en place ne sont pas créées une seconde fois.
+- 0.9.0 : changement de forfait. En passant à un forfait plus court (journée -> demi-journée, par exemple), le panneau
+  RETIRE les étapes du forfait devenues inutiles : les autres « Location monte-meuble » de la même adresse, et la pause
+  d'une journée qui n'en a plus besoin (sauf si une autre opération est prévue ce jour-là). Il les annonce avant
+  d'écrire. Il ne retire jamais une étape d'une autre adresse ou d'un autre nom.
+- 0.9.2 : tarifs des forfaits monte-meuble majorés et arrondis à la dizaine supérieure.
+  Déménageur supplémentaire : même règle.
+  Panneaux de stationnement : même tarif que dans la grille et dans Ulyss.
+
+VERSION 0.10.0 — FORFAIT « ASSISTANCE »
+- Le panneau Forfait propose deux types : « Location monte-meuble » et « Assistance ».
+- Assistance : ½ journée (8 h–12 h) ou 1 journée (8 h–12 h, pause, 14 h–18 h). On compose l'équipe avec les compteurs :
+  déménageurs, véhicules légers 20 m³, poids lourds, monte-meubles. Personnel seul ou véhicule seul possibles.
+- Prix : déménageur au tarif demi-journée ou journée ; véhicules au tarif jour de la grille de la société
+  (moitié pour une demi-journée). Les montants restent modifiables.
+- Report : main-d'œuvre, véhicules et monte-meuble chacun dans sa case de l'estimation d'Ulyss.
+- 0.10.1 : plus de case à cocher pour les panneaux de stationnement. Le panneau Forfait lit l'adresse dans le dossier :
+  si « Panneaux » ou « Dem. de stationnement » y est coché, le tarif panneaux est compté ; sinon non.
+
+VERSION 0.11.0 — PANNEAUX DE STATIONNEMENT AUTOMATIQUES
+- Plus aucune saisie des panneaux, ni dans « Forfait » ni dans « Grille » : l'extension lit les adresses du dossier.
+- Seule la case « Panneaux » de l'adresse compte. Tarif local (Haute-Vienne, code postal 87) ou national selon l'adresse.
+- Forfait : un seul montant pour l'adresse choisie, quelle que soit la durée.
+- Grille : une ligne de panneaux par adresse du dossier concernée, dans « Postes du dossier » de la première phase.
+- 0.11.1 : un appui à côté du panneau (partie gauche de l'écran) le referme, comme la croix ; après un forfait appliqué,
+  la pré-planification se réaffiche à jour. Les consignes « Choisissez… » et la ligne des panneaux sont retirées : la ligne
+  des panneaux n'apparaît que lorsqu'ils sont comptés.
+
+VERSION 0.12.0 — LE FORFAIT ÉCRIT DIRECTEMENT
+- Plus de bouton « Appliquer » : dès que l'adresse et la durée sont choisies, chaque changement (durée, déménageur en plus,
+  véhicule…) est écrit aussitôt sur l'étape dans la pré-planification d'Ulyss. Le panneau affiche « Écriture dans Ulyss… »,
+  puis ce qu'il a relu.
+- « Reporter le prix dans l'estimation Ulyss » devient actif une fois l'écriture terminée et relue.
+
+VERSION 1.0.0 — PRODUCTION
+- L'extension fonctionne désormais sur la PRODUCTION (https://ulyss.fr) et sur le staging (https://fraisseix.staging.unova.fr).
+- Elle se charge sur toutes les pages d'Ulyss et n'agit que dans la pré-planification d'un dossier : les boutons « Grille »
+  et « Forfait » apparaissent même en arrivant sur le dossier depuis la liste, sans recharger la page.
+- ATTENTION, en production les écritures sont réelles :
+  · « Forfait » modifie la pré-planification du dossier dès qu'une adresse et une durée sont choisies (il peut créer et
+    retirer des étapes de forfait à cette adresse) ;
+  · « Grille » n'écrit rien : il remplit l'estimation d'Ulyss, qui n'est enregistrée qu'au clic sur « Valider ».
+- Mise à jour : remplacer les fichiers dans le même dossier, puis recharger l'extension (flèche circulaire) et l'onglet Ulyss.
+
+VERSION 1.0.1 — LA REMISE ET LES ITEMS VONT AU DEVIS
+- Grille : après le clic sur « Valider » dans l'estimation d'Ulyss, l'extension ajoute elle-même au devis, en lignes libres,
+  la remise choisie (montant négatif) et les items hors des sept postes (items personnalisés, manutention garde-meubles).
+  Elle relit le devis et affiche « Ajouté au devis et relu : … » en haut à droite, ou un message rouge avec les montants
+  à saisir à la main si l'ajout n'a pas pu se faire.
+- Si l'on refait l'estimation d'une phase, Ulyss retire les lignes libres de cette phase : l'extension les remet.
+- 1.0.2 : « Valider » recharge la page d'Ulyss, ce qui coupait l'ajout de la remise (et le passage à la phase suivante).
+  L'extension note désormais ce qu'il reste à faire et le reprend sur la page suivante : elle ajoute la remise et les items,
+  puis réaffiche l'onglet Devis à jour avec un message « Ajouté au devis et relu ».
+- 1.0.3 : forfait sur une étape qui n'a aucun véhicule (ou aucun déménageur) : plus d'erreur « Type … introuvable dans
+  Ulyss ». Le type de véhicule est pris dans la liste d'Ulyss même quand l'étape n'en affiche pas.
+
+VERSION 1.1.0 — MOYENS PAR ÉTAPE AU-DESSUS DE LA PRÉ-PLANIFICATION
+- Un encadré apparaît au-dessus du calendrier de pré-planification dès que la phase compte au moins deux étapes : une ligne par
+  étape (jour, horaires, intitulé, déménageurs, véhicules), lisible même pour un créneau de 15 ou 30 minutes.
+- Ce qui change d'une étape à la suivante est surligné, avec l'ancienne et la nouvelle valeur. L'encadré est replié quand les
+  moyens sont identiques partout, déplié quand il y a un changement.
+- Information seule : l'extension ne corrige rien et n'écrit rien.
+
+VERSION 1.3.0 — MISE À JOUR AUTOMATIQUE (comme l'extension Telemak)
+- Installation, UNE fois par poste : extraire « ulyss-chiffrage-extension.zip » dans le dossier Téléchargements, de façon à obtenir
+  Téléchargements\ulyss-chiffrage-extension (avec manifest.json directement dedans), puis charger CE dossier dans le navigateur
+  (page des extensions, mode développeur, « Charger l'extension non empaquetée »).
+- Ensuite, plus rien à faire : en arrivant sur Ulyss, l'extension regarde (au plus toutes les 30 minutes) si une version plus récente
+  est publiée sur le site d'Ulyss Software, télécharge ses fichiers dans ce même dossier, puis se met en service à la page suivante
+  (la page se recharge une fois, un bandeau l'annonce).
+- En bas de la barre latérale d'Ulyss, sous la dernière icône, « ext 1.3.1 » (sur toutes les pages) : un clic vérifie tout de suite
+  et met à jour s'il y a lieu.
+- Ne déplacez pas, ne renommez pas et ne supprimez pas le dossier Téléchargements\ulyss-chiffrage-extension.
+- Plus aucun script Windows : si la tâche planifiée « Ulyss Chiffrage - mise a jour » des versions 1.2.x a été créée sur un poste,
+  elle peut être retirée (Planificateur de tâches de Windows).
+
+VERSION 1.3.1 — VERSION DANS LA BARRE LATÉRALE, MOYENS PAR ÉTAPE CONDENSÉS
+- La version de l'extension quitte la pré-planification : elle s'affiche « ext 1.3.1 » en bas de la barre latérale, sur toutes les pages.
+- « Moyens par étape » : placé sur la ligne du nom de la phase, centré, toujours replié à l'arrivée. Le titre dit s'il y a des
+  changements (il passe alors en ambre). Déplié, le détail s'affiche par-dessus le calendrier, sans décaler la page, en colonnes de
+  quatre étapes. Un clic ailleurs le replie.
+
+VERSION 1.3.2 — PASTILLE ROUGE SI L'EXTENSION N'EST PAS À JOUR
+- « ext x.y.z », en bas de la barre latérale, s'entoure d'une pastille rouge tant qu'une version plus récente est publiée et pas
+  encore en service. Normalement elle ne dure que le temps d'une page (la mise à jour se fait seule). Si elle reste, cliquez dessus :
+  le message dit quoi faire.
+
+VERSION 1.4.0 — TARIFS CHIFFRÉS, PUBLICATION PAR GITHUB
+- Les grilles de prix et les forfaits ne sont plus lisibles dans les fichiers de l'extension : ils sont dans « tarifs.chiffre »,
+  chiffré. Au premier clic sur « Grille » ou « Forfait », le poste demande le code d'accès aux tarifs, une seule fois.
+- Les mises à jour sont désormais lues dans le dépôt GitHub UlyssSoftware/extension-ulyss (plus sur le FTP du site).
+- Les anciens fichiers « grilles.js » et « forfaits.js » qui restent dans le dossier du poste ne servent plus.

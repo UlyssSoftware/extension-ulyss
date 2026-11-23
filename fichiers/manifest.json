@@ -1,0 +1,30 @@
+{
+  "manifest_version": 3,
+  "name": "Ulyss — Chiffrage (grille et forfait)",
+  "version": "1.4.0",
+  "description": "Dans la pré-planification d'un dossier Ulyss : chiffrage par la grille de référence, ou forfait (location de monte-meuble, assistance) écrit dans la pré-planification, puis report des montants dans l'estimation.",
+  "permissions": [
+    "storage",
+    "downloads",
+    "downloads.ui"
+  ],
+  "content_scripts": [
+    {
+      "matches": [
+        "https://ulyss.fr/*",
+        "https://fraisseix.staging.unova.fr/*"
+      ],
+      "js": [
+        "engine.js",
+        "content.js"
+      ],
+      "run_at": "document_idle"
+    }
+  ],
+  "background": {
+    "service_worker": "fond.js"
+  },
+  "host_permissions": [
+    "https://raw.githubusercontent.com/UlyssSoftware/extension-ulyss/*"
+  ]
+}
