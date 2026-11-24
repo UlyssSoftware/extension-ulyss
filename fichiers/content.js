@@ -664,7 +664,7 @@
       if (ligne) { if (getComputedStyle(ligne).position === 'static') ligne.style.position = 'relative'; ligne.appendChild(bloc); }
       else cal.parentElement.insertBefore(bloc, cal);
     }
-    if (etapes.length < 2) { bloc.hidden = true; bloc.innerHTML = ''; return; }
+    if (etapes.length < 2) { bloc.hidden = true; bloc.innerHTML = ''; pastilles = {}; poserPastilles(); return; }
     chargerDetailMoyens(brut, etapes);
     var detailPret = moyensDetail.sig === brut && moyensDetail.pret;
     // Véhicules d'une étape : le détail lu dans son formulaire ; à défaut (illisible, ou pas d'adresse), les compteurs du calendrier.
@@ -697,6 +697,16 @@
       if (!b.veh.length && !(avant && avant.veh.length)) o += '<span class="gcm-chip vide">' + ICONES.camion + 'aucun véhicule</span>';
       return o + (detailPret ? (b.etapes.some(function (e) { return e.illisible; }) ? '<span class="gcm-chip att">détail illisible</span>' : '') : '<span class="gcm-chip att">volume et spécificités…</span>');
     };
+    // Pastilles sur le calendrier (essai du 24/11/2026, en parallèle de la vue d'ensemble) : une par étape dont les moyens diffèrent
+    // de ceux de l'étape précédente ; son survol montre les moyens de l'étape et l'écart, avec les mêmes étiquettes.
+    var parEtape = {};
+    etapes.forEach(function (x, i) {
+      var p = etapes[i - 1];
+      if (!p || p.cle === x.cle || !x.item) return;
+      parEtape[x.item] = { titre: 'Jour ' + x.jour + ' · ' + x.debut + '–' + x.fin, nom: x.nom, html: moyens({ hommes: x.hommes, veh: x.veh, etapes: [x] }, p), avant: 'Jour ' + p.jour + ' · ' + p.debut + '–' + p.fin + (p.nom ? ' · ' + p.nom : '') };
+    });
+    pastilles = parEtape;
+    poserPastilles();
     var liste = function (etapes, avecJour) {
       return '<ul class="gcm-et' + (avecJour ? '' : ' sj') + '">' + etapes.map(function (e) { return '<li>' + (avecJour ? '<span class="j">J' + e.jour + '</span>' : '') + '<span>' + e.debut + '–' + e.fin + '</span><span class="n" title="' + echappe(e.nom) + '">' + echappe(e.nom) + '</span></li>'; }).join('') + '</ul>';
     };
@@ -738,9 +748,51 @@
       flux +
       '<p class="gcm-pied">VL véhicule léger · PL poids lourd · MM monte-meuble. +1 / −1 : écart avec l\'étape précédente ; barré : véhicule qui n\'est plus là. Information seule.</p></div></details>';
   }
+  // ---------- Pastilles de changement sur les étapes du calendrier ----------
+  // Le calendrier d'Ulyss (TUI Calendar) rend chaque étape dans « .tui-full-calendar-time-schedule[data-schedule-id] », lui-même dans un
+  // bloc positionné dont rien ne dépasse n'est coupé : la pastille s'y accroche, à cheval sur le coin haut gauche. Le calendrier
+  // redessine ses étapes à chaque modification : les pastilles sont reposées à chaque passage, sans rien toucher si elles sont en place.
+  var pastilles = {};
+  function fermerBulle() { var b = document.getElementById('gc-bulle'); if (b) b.remove(); }
+  function ouvrirBulle(p, info) {
+    fermerBulle();
+    var b = document.createElement('div'), r = p.getBoundingClientRect();
+    b.id = 'gc-bulle'; b.setAttribute('role', 'tooltip'); b.setAttribute('data-item', p.getAttribute('data-item'));
+    b.style.cssText = 'position:fixed;z-index:2147482500;max-width:340px;background:#fff;border:1px solid #dfe5ee;border-radius:14px;box-shadow:0 14px 40px rgba(31,42,68,.22);padding:12px 14px;font:14px/1.4 ' + getComputedStyle(document.body).fontFamily + ';color:#1f2a44;pointer-events:none';
+    b.innerHTML = '<div class="gcm-per" style="margin-bottom:2px"><b>' + echappe(info.titre) + '</b></div>' + (info.nom ? '<div style="color:#475569;font-size:12.500px;margin-bottom:9px">' + echappe(info.nom) + '</div>' : '<div style="height:7px"></div>') +
+      '<div class="gcm-moy" style="margin-bottom:9px">' + info.html + '</div><div style="border-top:1px dashed #dbe2ec;padding-top:7px;color:#64748b;font-size:12px">Écart avec l\'étape précédente<br><span style="color:#475569">' + echappe(info.avant) + '</span></div>';
+    document.body.appendChild(b);
+    var h = b.getBoundingClientRect(), gauche = r.right + 10, haut = r.top - 6;
+    if (gauche + h.width > window.innerWidth - 8) gauche = Math.max(8, r.left - h.width - 10);
+    if (haut + h.height > window.innerHeight - 8) haut = Math.max(8, window.innerHeight - h.height - 8);
+    b.style.left = gauche + 'px'; b.style.top = haut + 'px';
+  }
+  function poserPastilles() {
+    var vus = {};
+    [].slice.call(document.querySelectorAll('.tui-full-calendar-time-schedule[data-schedule-id]')).forEach(function (el) {
+      var item = String(el.getAttribute('data-schedule-id') || '').replace(/\D/g, ''), bloc = el.parentElement, info = pastilles[item];
+      if (!bloc) return;
+      var p = bloc.querySelector(':scope > .gc-pastille');
+      if (!info) { if (p) p.remove(); return; }
+      vus[item] = 1;
+      if (p && p.getAttribute('data-item') === item) return;
+      if (p) p.remove();
+      p = document.createElement('span');
+      p.className = 'gc-pastille'; p.setAttribute('data-item', item); p.setAttribute('aria-label', 'Moyens différents de l\'étape précédente');
+      p.style.cssText = 'position:absolute;top:-9px;left:-9px;z-index:6;width:22px;height:22px;border-radius:50%;background:#d97706;border:2px solid #fff;box-shadow:0 1px 4px rgba(31,42,68,.35);color:#fff;display:flex;align-items:center;justify-content:center;cursor:help';
+      p.innerHTML = '<svg viewBox="0 0 24 24" width="13" height="13" aria-hidden="true"><path d="M12 5.500v9M7.500 10h9M7.500 18.500h9" fill="none" stroke="currentColor" stroke-width="2.800" stroke-linecap="round"/></svg>';
+      p.addEventListener('mouseenter', function () { var i = pastilles[item]; if (i) ouvrirBulle(p, i); });
+      p.addEventListener('mouseleave', fermerBulle);
+      // Écran tactile : un appui affiche la bulle, un second la referme. L'appui ne doit ni ouvrir l'étape ni lancer un déplacement.
+      ['mousedown', 'pointerdown', 'touchstart'].forEach(function (t) { p.addEventListener(t, function (e) { e.stopPropagation(); }); });
+      p.addEventListener('click', function (e) { e.preventDefault(); e.stopPropagation(); var b = document.getElementById('gc-bulle'), i = pastilles[item]; if (b && b.getAttribute('data-item') === item) fermerBulle(); else if (i) ouvrirBulle(p, i); });
+      bloc.appendChild(p);
+    });
+    var b = document.getElementById('gc-bulle'); if (b && !vus[b.getAttribute('data-item')]) b.remove();
+  }
   // Un clic ailleurs dans la page replie le détail des moyens.
   document.addEventListener('click', function (e) { var b = document.getElementById('gc-coherence'), d = b && b.querySelector('details[open]'); if (d && !b.contains(e.target)) d.removeAttribute('open'); });
-  var tout = function () { poserBouton(); poserCoherence(); poserVersion(); };
+  var tout = function () { poserBouton(); poserCoherence(); poserPastilles(); poserVersion(); };
   new MutationObserver(tout).observe(document.documentElement, { childList: true, subtree: true, attributes: true, attributeFilter: ['data-events'] });
   tout();
 

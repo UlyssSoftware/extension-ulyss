@@ -193,3 +193,8 @@ VERSION 1.4.7 — MOYENS PAR ÉTAPE : REGROUPEMENT PAR JOUR QUAND IL Y A DES ÉC
 VERSION 1.4.8 — MOYENS PAR ÉTAPE : L'ÉCART EST ÉCRIT DANS L'ÉTIQUETTE
 - Plus de ligne de changements à part : l'écart avec l'étape précédente est dans l'étiquette elle-même, en ambre —
   « 3 déménageurs +1 », « 1 VL 20 m³ +1 ». Un véhicule qui n'est plus là apparaît barré, avec « −1 ».
+
+VERSION 1.4.9 — PASTILLES DE CHANGEMENT SUR LES ÉTAPES DU CALENDRIER (ESSAI)
+- En plus de la vue d'ensemble, chaque étape du calendrier dont les moyens diffèrent de l'étape précédente porte une pastille
+  ambre sur son coin haut gauche. Au survol (ou d'un appui sur écran tactile), une bulle montre les moyens de l'étape et l'écart,
+  avec les mêmes étiquettes que la vue d'ensemble.
