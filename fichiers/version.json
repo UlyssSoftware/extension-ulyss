@@ -1,5 +1,5 @@
 {
- "version": "1.4.9",
+ "version": "1.5.0",
  "date": "2026-11-24",
  "fichiers": [
   "LISEZMOI.txt",
@@ -10,12 +10,12 @@
   "tarifs.json"
  ],
  "empreintes": {
-  "LISEZMOI.txt": "ef79f55ef35d2bd24b41b8e50cdb8a686bf22c0161bbe78dd676e0e39d2db4d4",
-  "content.js": "055ab5b471e4502c4db1d14e69275fb179269794470a95c95c271fdfa7fe3175",
+  "LISEZMOI.txt": "0648aecbaf0c17101d9c188c32da37ac72395849172b8c75de17fc5aac3c58ce",
+  "content.js": "5a222d647b03c3c8027301ebcfcb729bc676370b5dffb6309043dafab075cb17",
   "engine.js": "9148cdd217de6df651c87274ea79116110bdff7a6db3d097127c41c498139385",
   "fond.js": "1e9b497cf3bbcfa20ad4612c23c5e982cfbe22265d5ec84b235a30423a7bb66f",
-  "manifest.json": "caccd7c26c4fd47062dc4a27d1e7729c16ce15299de1807e0276425d48e422d1",
+  "manifest.json": "df48193da75c342460b29ebce730e7ae3a87cfc706b6bee7bdc7cfff613370c3",
   "tarifs.json": "7ae7b229d245604ce60d0d050ddd0ba0620dfb802162c238cc0d906ad826bc96"
  },
- "reference": "7c360df3c7d2f878c2f26ae4446568364e4c8605"
+ "reference": "6e2930797d2fa5f689b12057edf2858c07de1459"
 }
