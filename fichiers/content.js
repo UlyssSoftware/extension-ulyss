@@ -636,6 +636,10 @@
     '.gcm-jour h4{display:flex;align-items:baseline;justify-content:space-between;gap:16px;margin:0 2px 10px;font-size:14.500px;font-weight:700;color:#1f2a44}.gcm-jour h4 span{font-size:12px;font-weight:500;color:#64748b}' +
     '.gcm-seg{background:#fff;border:1px solid #e3e8f0;border-radius:11px;padding:10px 12px}.gcm-seg .gcm-per{margin-bottom:8px}.gcm-seg .gcm-moy{margin-bottom:8px}.gcm-et.sj{grid-template-columns:auto 1fr}' +
     '.gcm-meme{margin:0 2px 8px;color:#64748b;font-size:12.500px}' +
+    '.gcm-seg+.gcm-seg,.gcm-meme+.gcm-seg{margin-top:0}.gcm-seg+.gcm-seg{margin-top:10px}.gcm-seg.chg{border-color:#f5d48a}' +
+    '.gcm-chip i{font-style:normal;font-size:12px;font-weight:700;line-height:1;color:#92400e;background:#fde68a;border-radius:999px;padding:3px 7px;margin-left:2px}' +
+    '.gcm-chip.chg{border-color:#f5c451;background:#fffbeb}.gcm-chip.chg svg{color:#b45309}' +
+    '.gcm-chip.ret{border-style:dashed;border-color:#e2c48a;background:transparent;color:#94a3b8;font-weight:500}.gcm-chip.ret svg{color:#c9a15a}.gcm-chip.ret s{text-decoration-thickness:1.500px}.gcm-chip.ret small{opacity:.7}' +
     '.gcm-delta{display:flex;flex-wrap:wrap;align-items:center;gap:5px;margin:8px 2px;color:#b45309}.gcm-delta svg{transform:rotate(90deg);flex:none}.gcm-jour>.gcm-delta:nth-child(2){margin-top:0}' +
     '.gcm-delta span{display:block;padding:3px 9px;border-radius:999px;background:#fef3c7;border:1px solid #fcd34d;color:#92400e;font-size:12.500px;font-weight:600;white-space:nowrap}.gcm-delta span.moins{background:#fff;border-color:#e2c48a;color:#a16207}' +
     '.gcm-pied{margin:10px 0 0;color:#64748b;font-size:12px;width:0;min-width:100%}';
@@ -675,20 +679,23 @@
     var blocs = [];
     etapes.forEach(function (x) { var b = blocs[blocs.length - 1]; if (b && b.cle === x.cle) b.etapes.push(x); else blocs.push({ cle: x.cle, hommes: x.hommes, veh: x.veh, etapes: [x] }); });
     var n = blocs.length - 1, pluriel = function (k, mot) { return k + ' ' + mot + (k > 1 ? 's' : ''); };
-    // Ce qui change d'un bloc au suivant.
-    var deltas = function (a, b) {
-      var o = [], dh = b.hommes - a.hommes, moins = [], plus = [], cles = {};
-      if (dh) o.push('<span>' + (dh > 0 ? '+' : '−') + pluriel(Math.abs(dh), 'déménageur') + '</span>');
-      a.veh.forEach(function (v) { cles[v.cle] = (cles[v.cle] || 0) - v.n; }); b.veh.forEach(function (v) { cles[v.cle] = (cles[v.cle] || 0) + v.n; });
-      Object.keys(cles).sort().forEach(function (c) { if (cles[c] < 0) moins.push([-cles[c], c]); else if (cles[c] > 0) plus.push([cles[c], c]); });
-      if (moins.length === 1 && plus.length === 1 && moins[0][0] === plus[0][0]) o.push('<span>' + (moins[0][0] > 1 ? moins[0][0] + ' ' : '') + echappe(moins[0][1]) + ' → ' + echappe(plus[0][1]) + '</span>');
-      else { plus.forEach(function (p) { o.push('<span>+ ' + p[0] + ' ' + echappe(p[1]) + '</span>'); }); moins.forEach(function (m) { o.push('<span class="moins">− ' + m[0] + ' ' + echappe(m[1]) + '</span>'); }); }
-      return o.join('');
-    };
-    var moyens = function (b) {
-      return '<span class="gcm-chip' + (b.hommes ? '' : ' vide') + '">' + ICONES.homme + (b.hommes ? pluriel(b.hommes, 'déménageur') : 'aucun déménageur') + '</span>' +
-        (b.veh.length ? b.veh.map(function (v) { return '<span class="gcm-chip">' + ICONES.camion + v.n + ' ' + echappe(v.t) + v.specs.map(function (s) { return '<small>' + echappe(s) + '</small>'; }).join('') + '</span>'; }).join('') : '<span class="gcm-chip vide">' + ICONES.camion + 'aucun véhicule</span>') +
-        (detailPret ? (b.etapes.some(function (e) { return e.illisible; }) ? '<span class="gcm-chip att">détail illisible</span>' : '') : '<span class="gcm-chip att">volume et spécificités…</span>');
+    // Étiquettes de moyens. Avec « avant » (les moyens de l'étape précédente, s'ils diffèrent), l'écart est écrit DANS l'étiquette
+    // (demande du 24/11/2026) : « 3 déménageurs +1 », « 1 VL 20 m³ +1 » pour un véhicule qui arrive, et une étiquette barrée
+    // « −1 » pour un véhicule qui n'est plus là.
+    var ecart = function (k) { return k ? '<i>' + (k > 0 ? '+' : '−') + Math.abs(k) + '</i>' : ''; };
+    var moyens = function (b, avant) {
+      var dh = avant ? b.hommes - avant.hommes : 0, avantVeh = {}, vus = {};
+      if (avant) avant.veh.forEach(function (v) { avantVeh[v.cle] = v; });
+      var specs = function (v) { return v.specs.map(function (s) { return '<small>' + echappe(s) + '</small>'; }).join(''); };
+      var o = '<span class="gcm-chip' + (b.hommes ? '' : ' vide') + (dh ? ' chg' : '') + '">' + ICONES.homme + (b.hommes ? pluriel(b.hommes, 'déménageur') : 'aucun déménageur') + ecart(dh) + '</span>';
+      b.veh.forEach(function (v) {
+        var d = avant ? v.n - (avantVeh[v.cle] ? avantVeh[v.cle].n : 0) : 0;
+        vus[v.cle] = 1;
+        o += '<span class="gcm-chip' + (d ? ' chg' : '') + '">' + ICONES.camion + v.n + ' ' + echappe(v.t) + specs(v) + ecart(d) + '</span>';
+      });
+      if (avant) avant.veh.forEach(function (v) { if (!vus[v.cle]) o += '<span class="gcm-chip ret" title="Présent à l\'étape précédente, plus ici">' + ICONES.camion + '<s>' + echappe(v.t) + '</s>' + specs(v) + ecart(-v.n) + '</span>'; });
+      if (!b.veh.length && !(avant && avant.veh.length)) o += '<span class="gcm-chip vide">' + ICONES.camion + 'aucun véhicule</span>';
+      return o + (detailPret ? (b.etapes.some(function (e) { return e.illisible; }) ? '<span class="gcm-chip att">détail illisible</span>' : '') : '<span class="gcm-chip att">volume et spécificités…</span>');
     };
     var liste = function (etapes, avecJour) {
       return '<ul class="gcm-et' + (avecJour ? '' : ' sj') + '">' + etapes.map(function (e) { return '<li>' + (avecJour ? '<span class="j">J' + e.jour + '</span>' : '') + '<span>' + e.debut + '–' + e.fin + '</span><span class="n" title="' + echappe(e.nom) + '">' + echappe(e.nom) + '</span></li>'; }).join('') + '</ul>';
@@ -713,10 +720,10 @@
       flux = '<div class="gcm-jours">' + jours.map(function (j) {
         return '<section class="gcm-jour"><h4>Jour ' + j.jour + '<span>' + pluriel(j.n, 'étape') + '</span></h4>' + j.segs.map(function (sgm, k) {
           var tete = '';
-          if (sgm.avant && sgm.avant.cle !== sgm.cle) tete = '<div class="gcm-delta" title="Ce qui change à partir de cette étape">' + ICONES.fleche + deltas(sgm.avant, sgm) + '</div>';
-          else if (sgm.avant && !k) tete = '<div class="gcm-meme">Mêmes moyens que la veille</div>';
+          var change = !!sgm.avant && sgm.avant.cle !== sgm.cle;
+          if (sgm.avant && !k && !change) tete = '<div class="gcm-meme">Mêmes moyens que la veille</div>';
           var e0 = sgm.etapes[0], e1 = sgm.etapes[sgm.etapes.length - 1];
-          return tete + '<div class="gcm-seg"><div class="gcm-per"><b>' + e0.debut + '</b> <em>→</em> <b>' + e1.fin + '</b></div><div class="gcm-moy">' + moyens(sgm) + '</div>' + liste(sgm.etapes, false) + '</div>';
+          return tete + '<div class="gcm-seg' + (change ? ' chg' : '') + '"><div class="gcm-per"><b>' + e0.debut + '</b> <em>→</em> <b>' + e1.fin + '</b></div><div class="gcm-moy">' + moyens(sgm, change ? sgm.avant : null) + '</div>' + liste(sgm.etapes, false) + '</div>';
         }).join('') + '</section>';
       }).join('') + '</div>';
     }
@@ -727,9 +734,9 @@
     // Toujours replié à l'arrivée : la pastille dit s'il y a des changements, le détail se déplie par-dessus le calendrier sans décaler la page.
     bloc.innerHTML = '<style>' + STYLE_MOYENS + '</style><details' + (ouvert ? ' open' : '') + '><summary><span class="gcm-pill ' + (n ? 'var' : 'ok') + '"><span class="gcm-dot"></span>' +
       '<span class="gcm-t">' + (n ? pluriel(n, 'changement') + ' de moyens' : 'Moyens constants') + '</span><span class="gcm-s">' + etapes.length + ' étapes</span>' + mini + ICONES.chevron + '</span></summary>' +
-      '<div class="gcm-pop"><div class="gcm-tete"><b>Moyens par étape</b><span>' + (n ? 'Jour par jour · ce qui change est en ambre' : 'Les mêmes moyens du début à la fin') + '</span></div>' +
+      '<div class="gcm-pop"><div class="gcm-tete"><b>Moyens par étape</b><span>' + (n ? 'Jour par jour · en ambre, l\'écart avec l\'étape précédente' : 'Les mêmes moyens du début à la fin') + '</span></div>' +
       flux +
-      '<p class="gcm-pied">VL véhicule léger · PL poids lourd · MM monte-meuble. Les étapes qui se suivent avec les mêmes moyens sont regroupées. Information seule.</p></div></details>';
+      '<p class="gcm-pied">VL véhicule léger · PL poids lourd · MM monte-meuble. +1 / −1 : écart avec l\'étape précédente ; barré : véhicule qui n\'est plus là. Information seule.</p></div></details>';
   }
   // Un clic ailleurs dans la page replie le détail des moyens.
   document.addEventListener('click', function (e) { var b = document.getElementById('gc-coherence'), d = b && b.querySelector('details[open]'); if (d && !b.contains(e.target)) d.removeAttribute('open'); });

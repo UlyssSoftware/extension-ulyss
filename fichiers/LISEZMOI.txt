@@ -189,3 +189,7 @@ VERSION 1.4.7 — MOYENS PAR ÉTAPE : REGROUPEMENT PAR JOUR QUAND IL Y A DES ÉC
   regroupées, et ce qui change est écrit en ambre à l'endroit où ça change, y compris en tête de journée par rapport à la veille
   (ou « Mêmes moyens que la veille »).
 - Quand les moyens sont constants, une seule carte résume toute la phase.
+
+VERSION 1.4.8 — MOYENS PAR ÉTAPE : L'ÉCART EST ÉCRIT DANS L'ÉTIQUETTE
+- Plus de ligne de changements à part : l'écart avec l'étape précédente est dans l'étiquette elle-même, en ambre —
+  « 3 déménageurs +1 », « 1 VL 20 m³ +1 ». Un véhicule qui n'est plus là apparaît barré, avec « −1 ».
