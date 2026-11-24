@@ -810,13 +810,37 @@
     var el = (doc || document).querySelector('[data-events]'), brut = [];
     try { brut = JSON.parse(el.getAttribute('data-events')) || []; } catch (e) {}
     // On ne garde ni le nom du client ni l'adresse.
-    return brut.filter(function (e) { return e.nbEmp || e.nbVehLight || e.nbVehHeavy || e.nbLift; }).map(function (e) {
+    var evs = brut.filter(function (e) { return e.nbEmp || e.nbVehLight || e.nbVehHeavy || e.nbLift; }).map(function (e) {
       return {
         nom: e.name, jour: Number(String(e.start).slice(8, 10)), debut: String(e.start).slice(11, 16), fin: String(e.end).slice(11, 16),
         heures: (new Date(e.end) - new Date(e.start)) / 36e5, hommes: e.nbEmp || 0, vl: e.nbVehLight || 0, pl: e.nbVehHeavy || 0, mm: e.nbLift || 0,
         url: e.url, item: String(e.id || '').replace(/\D/g, ''), societe: e.structure || '', numero: e.contract_number || ''
       };
     });
+    return compterEmbauche(evs);
+  }
+  // Règle de Guillaume du 24/11/2026 : les horaires de la pré-planification sont ceux donnés au client. Le temps se compte depuis
+  // l'embauche : préparation au dépôt et approche. Le matin, base 7 h, même si le chantier commence à 7 h 30 ou 8 h ; l'après-midi,
+  // base 13 h 30 pour un début à 14 h chez le client. Le temps ajouté est porté par la première étape de la demi-journée (toutes
+  // celles qui démarrent à cette heure-là, si plusieurs équipes partent en même temps) : hommes, véhicules et monte-meuble.
+  var EMBAUCHE_MATIN = 7, EMBAUCHE_APRES_MIDI = 13.5, MIDI = 12;
+  function compterEmbauche(evs) {
+    var dec = function (hm) { var p = String(hm).split(':'); return Number(p[0]) + Number(p[1] || 0) / 60; }, parJour = {};
+    evs.forEach(function (e) { e.d = dec(e.debut); e.f = e.d + e.heures; e.prepa = 0; (parJour[e.jour] = parJour[e.jour] || []).push(e); });
+    Object.keys(parJour).forEach(function (j) {
+      var l = parJour[j].slice().sort(function (a, b) { return a.d - b.d; });
+      var matin = l.filter(function (e) { return e.d < MIDI; }), aprem = l.filter(function (e) { return e.d >= MIDI; });
+      // Matin : la première étape du jour, comptée depuis 7 h.
+      if (matin.length && matin[0].d > EMBAUCHE_MATIN) matin.filter(function (e) { return e.d === matin[0].d; }).forEach(function (e) { e.prepa = e.d - EMBAUCHE_MATIN; });
+      // Après-midi : la première étape qui reprend après une coupure (ou la première du jour s'il n'y a pas de matin), comptée depuis
+      // 13 h 30 — sans jamais remonter avant la fin du matin. Une étape qui s'enchaîne sans coupure n'ajoute rien.
+      if (aprem.length) {
+        var finMatin = matin.reduce(function (m, e) { return Math.max(m, e.f); }, 0), base = Math.max(EMBAUCHE_APRES_MIDI, finMatin);
+        if (aprem[0].d > base && aprem[0].d > finMatin) aprem.filter(function (e) { return e.d === aprem[0].d; }).forEach(function (e) { e.prepa = e.d - base; });
+      }
+    });
+    evs.forEach(function (e) { e.heures += e.prepa; });
+    return evs;
   }
   // Les phases du dossier : liens « /contracts/<id>/phases/<phase> » de la page de pré-planification.
   function lirePhases() {
@@ -881,8 +905,8 @@
     };
     evs.forEach(function (e, i) {
       var cle = e.jour + '|' + e.nom, g = parCle[cle], j = arrondi(e.heures / HEURES_PAR_JOUR);
-      if (!g) { g = parCle[cle] = { id: groupes.length + 1, origine: 'prep', titre: 'Jour ' + e.jour + ' · ' + e.nom, plages: [], heures: 0 }; groupes.push(g); }
-      g.plages.push(e.debut + '–' + e.fin); g.heures += e.heures;
+      if (!g) { g = parCle[cle] = { id: groupes.length + 1, origine: 'prep', titre: 'Jour ' + e.jour + ' · ' + e.nom, plages: [], heures: 0, prepa: 0 }; groupes.push(g); }
+      g.plages.push(e.debut + '–' + e.fin); g.heures += e.heures; g.prepa += e.prepa || 0;
       if (e.hommes) ajoute(g, 'homme', e.hommes, j);
       Object.keys(vehs[i].parCapacite).forEach(function (c) {
         var nb = vehs[i].parCapacite[c];
@@ -891,7 +915,8 @@
       });
       if (e.mm) ajoute(g, 'mm', e.mm, j);
     });
-    groupes.forEach(function (g) { g.detail = g.plages.join(' et ') + ' · ' + fr(arrondi(g.heures)) + ' h'; });
+    // Les horaires affichés restent ceux du client ; la durée comptée inclut la préparation et l'approche, et on le dit.
+    groupes.forEach(function (g) { g.detail = g.plages.join(' et ') + ' · ' + fr(arrondi(g.heures)) + ' h' + (g.prepa ? ' dont ' + fr(arrondi(g.prepa)) + ' h de préparation et d\'approche' : ''); });
     if (!avecDossier) return { groupes: groupes, lignes: lignes };   // volume, distance et valeur déclarée ne se comptent qu'une fois
     var d = { id: groupes.length + 1, origine: 'prep', titre: 'Postes du dossier', detail: 'volume, distance, valeur déclarée et panneaux lus sur le dossier' };
     if (bandeau.km > 0) Object.keys(maxi).forEach(function (c) { ajoute(d, 'k' + c, maxi[c], bandeau.km * 2); });
@@ -1024,7 +1049,7 @@
       '<div class="act"><button class="b pr" id="ap-ok">Ajouter</button><button class="lien" id="ap-non">annuler</button></div></div>' +
       '<details id="detail"><summary>Détail par étape, pour ajuster les moyens</summary><div class="zone"><table><thead><tr><th>Moyen</th><th class="num">Nombre</th><th>Quantité</th><th class="num">Prix unitaire HT</th><th class="num">Montant HT</th><th></th><th></th></tr></thead><tbody id="lignes"></tbody></table></div>' +
       '<div class="act"><button class="b" id="ajouter">Ajouter une étape</button><button class="b" id="retablir">Revenir à la pré-planification</button></div>' +
-      '<p class="note">Le temps se compte en journées de 8 heures. Montant = nombre × quantité × prix unitaire.</p></details></div></section>' +
+      '<p class="note">Le temps se compte en journées de 8 heures, depuis l\'embauche : 7 h le matin, 13 h 30 l\'après-midi, même si le chantier commence plus tard chez le client. Montant = nombre × quantité × prix unitaire.</p></details></div></section>' +
       '<section class="carte"><div class="tp"><h2>Détails des postes</h2><div class="choix seg" id="remises"></div></div>' +
       '<div class="rp" id="rm-rx" hidden><span>Remise de</span><input inputmode="decimal" class="n" id="rm-x" aria-label="Remise"><div class="choix seg" id="rm-type"><button data-t="pct">%</button><button data-t="val">€</button></div></div>' +
       '<div class="rp" id="rm-mo" hidden><label for="rm-motif">Raison ou origine</label><input id="rm-motif" maxlength="80" placeholder="ancien client, partenaire, haute saison…"></div>' +

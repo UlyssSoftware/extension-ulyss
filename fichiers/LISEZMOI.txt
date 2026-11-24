@@ -198,3 +198,10 @@ VERSION 1.4.9 — PASTILLES DE CHANGEMENT SUR LES ÉTAPES DU CALENDRIER (ESSAI)
 - En plus de la vue d'ensemble, chaque étape du calendrier dont les moyens diffèrent de l'étape précédente porte une pastille
   ambre sur son coin haut gauche. Au survol (ou d'un appui sur écran tactile), une bulle montre les moyens de l'étape et l'écart,
   avec les mêmes étiquettes que la vue d'ensemble.
+
+VERSION 1.5.0 — GRILLE : LE TEMPS SE COMPTE DEPUIS L'EMBAUCHE
+- Les horaires de la pré-planification sont ceux donnés au client. Le panneau « Grille » compte désormais le temps depuis
+  l'embauche : 7 h le matin, même si le chantier commence à 7 h 30 ou 8 h ; 13 h 30 l'après-midi pour un début à 14 h.
+- Le temps ajouté (préparation au dépôt et approche) est porté par la première étape de la demi-journée, pour les hommes, les
+  véhicules et le monte-meuble. Le détail de l'étape l'indique : « 08:00–12:00 · 5 h dont 1 h de préparation et d'approche ».
+- Les forfaits (location de monte-meuble, assistance) ne changent pas : leur prix est fixe.
