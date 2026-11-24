@@ -163,6 +163,18 @@ function enregistrerCode(code) {
   }).catch(function (e) { return { ok: false, motif: (e && e.message) || String(e) }; });
 }
 
+// Confirmation de rendez-vous par e-mail : le script d'envoi (hébergé sur ulyss-software.com) n'accepte que les appels qui
+// présentent sa clé. Adresse et clé sont rangées avec les tarifs, dans le fichier chiffré : le code de l'extension est public.
+function envoyerRdv(donnees) {
+  return lireTarifs().then(function (r) {
+    if (!r.ok) return r;
+    var c = r.tarifs && r.tarifs.rdv;
+    if (!c || !c.cle || !/^https:\/\/www\.ulyss-software\.com\/confirmation-rdv\//.test(String(c.url || ''))) return { ok: false, motif: "réglages de l'envoi absents du fichier chiffré (extension à mettre à jour)" };
+    return fetch(c.url, { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Cle': c.cle }, body: JSON.stringify(donnees || {}), cache: 'no-store' })
+      .then(function (rep) { return rep.text().then(function (t) { var j = null; try { j = JSON.parse(t); } catch (e) {} return { ok: true, statut: rep.status, corps: j, brut: j ? '' : t.slice(0, 300) }; }); });
+  }).catch(function (e) { return { ok: false, motif: 'le script d\'envoi ne répond pas (' + ((e && e.message) || e) + ')' }; });
+}
+
 chrome.runtime.onMessage.addListener(function (msg, expediteur, repondre) {
   if (!msg || !msg.type) return;
   if (msg.type === 'gc-etat') {
@@ -170,6 +182,7 @@ chrome.runtime.onMessage.addListener(function (msg, expediteur, repondre) {
     return true;   // réponse différée
   }
   if (msg.type === 'gc-tarifs') { lireTarifs().then(repondre); return true; }
+  if (msg.type === 'gc-rdv') { envoyerRdv(msg.donnees).then(repondre); return true; }
   if (msg.type === 'gc-code') { enregistrerCode(msg.code).then(repondre); return true; }
   if (msg.type === 'gc-verifier') { verifier(msg.force === true).then(repondre); return true; }
   if (msg.type === 'gc-recharger') {

@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
-  "name": "Ulyss — Chiffrage (grille et forfait)",
-  "version": "1.5.0",
-  "description": "Dans la pré-planification d'un dossier Ulyss : chiffrage par la grille de référence, ou forfait (location de monte-meuble, assistance) écrit dans la pré-planification, puis report des montants dans l'estimation.",
+  "name": "Extension Ulyss",
+  "version": "1.6.0",
+  "description": "Outils Limo Dem dans Ulyss : chiffrage par la grille ou par forfait et moyens par étape dans la pré-planification, confirmation de rendez-vous par e-mail depuis la fiche dossier.",
   "permissions": [
     "storage",
     "downloads",
@@ -16,7 +16,8 @@
       ],
       "js": [
         "engine.js",
-        "content.js"
+        "content.js",
+        "rdv.js"
       ],
       "run_at": "document_idle"
     }
@@ -26,6 +27,7 @@
   },
   "host_permissions": [
     "https://raw.githubusercontent.com/UlyssSoftware/extension-ulyss/*",
-    "https://cdn.jsdelivr.net/gh/UlyssSoftware/*"
+    "https://cdn.jsdelivr.net/gh/UlyssSoftware/*",
+    "https://www.ulyss-software.com/confirmation-rdv/*"
   ]
 }

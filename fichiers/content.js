@@ -80,6 +80,7 @@
   function tarifsPrets(sansForfaits) { return typeof GRILLES_REFERENCE !== 'undefined' && !!GRILLES_REFERENCE && (!!sansForfaits || (typeof FORFAITS !== 'undefined' && !!FORFAITS)); }
   function poserTarifs(t) { if (t && t.grilles && t.forfaits) { window.GRILLES_REFERENCE = t.grilles; window.FORFAITS = t.forfaits; } return tarifsPrets(); }
   if (EXT && !tarifsPrets()) demander({ type: 'gc-tarifs' }).then(function (r) { if (r && r.ok) poserTarifs(r.tarifs); });
+  window.__gcDemanderCode = function (ensuite) { demanderCode(ensuite); };   // utilisé par rdv.js
   function demanderCode(ensuite) {
     if (!EXT) { afficherMessage({ texte: 'Tarifs indisponibles.', erreur: true }); return; }
     // D'abord un nouvel essai silencieux : la clé est peut-être déjà sur le poste (page ouverte avant la réponse du service worker).

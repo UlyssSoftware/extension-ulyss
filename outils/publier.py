@@ -7,7 +7,7 @@ D=os.path.dirname(os.path.abspath(__file__)); SRC=os.path.join(D,'ulyss-chiffrag
 import subprocess, base64, hashlib as _h
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 PRIVE=os.path.join(D,'prive'); CHIFFRE=os.path.join(SRC,'tarifs.json'); ITER=600000
-clair=subprocess.run(['node',os.path.join(D,'tarifs-en-json.js'),os.path.join(PRIVE,'grilles.js'),os.path.join(PRIVE,'forfaits.js')],capture_output=True,check=True).stdout
+clair=subprocess.run(['node',os.path.join(D,'tarifs-en-json.js'),os.path.join(PRIVE,'grilles.js'),os.path.join(PRIVE,'forfaits.js'),os.path.join(PRIVE,'rdv.json')],capture_output=True,check=True).stdout
 code=open(os.path.join(PRIVE,'code.txt'),encoding='utf8').read()
 ancien=json.load(open(CHIFFRE)) if os.path.exists(CHIFFRE) else None
 def cle(sel): return _h.pbkdf2_hmac('sha256',code.encode('utf8'),sel,ITER,32)
