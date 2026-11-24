@@ -176,3 +176,10 @@ VERSION 1.4.5 — MOYENS PAR ÉTAPE : VOLUME ET SPÉCIFICITÉS DES VÉHICULES
 - Un changement de volume ou de spécificité d'une étape à la suivante est compté et surligné, comme un changement de véhicule.
 - Tous les types de véhicule sont maintenant affichés (remorque, caisse mobile…), pas seulement VL, PL et monte-meuble.
 - Ces détails sont lus dans le formulaire de chaque étape (lecture seule) : ils s'affichent une seconde ou deux après la page.
+
+VERSION 1.4.6 — MOYENS PAR ÉTAPE : NOUVELLE PRÉSENTATION EN BLOCS
+- La pastille, sur la ligne du nom de la phase, dit d'un coup d'œil « Moyens constants » (point vert) ou « n changements de
+  moyens » (point ambre), avec une mini-frise : un segment par bloc d'étapes aux mêmes moyens.
+- Déplié : les étapes qui se suivent avec les mêmes moyens sont regroupées en un bloc (période, déménageurs, véhicules avec
+  volume et spécificités, liste des étapes). Entre deux blocs, ce qui change est écrit en clair : « +1 déménageur »,
+  « PL 50 m³ (Hayon) → PL 30 m³ », « + 1 VL 20 m³ ».

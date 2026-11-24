@@ -567,7 +567,6 @@
   // Information seule : rien n'est écrit ni corrigé. Une ligne par étape de la phase affichée, avec ses déménageurs et ses véhicules,
   // lisible même quand le créneau est trop court pour que le calendrier d'Ulyss montre les moyens. Ce qui change par rapport à
   // l'étape précédente est surligné : un écart n'est pas forcément une erreur, il doit seulement se voir tout de suite.
-  var PAR_COLONNE = 4;   // étapes par colonne dans le détail déplié
   // Détail des véhicules de chaque étape (demande du 23/11/2026 : « 1 PL » ne suffit pas, il faut le volume et les spécificités).
   // Le calendrier ne donne que des compteurs : le type, le volume et les caractéristiques sont lus dans le formulaire de chaque
   // étape (lecture seule, quatre à la fois), une fois par état de la pré-planification.
@@ -583,16 +582,16 @@
       if (retire && /^(1|true)$/.test(retire.value)) return null;
       var vol = f.querySelector('input[name="' + base + '[volume_in_float]"]'), car = f.querySelector('select[name="' + base + '[characteristic_ids][]"]');
       var v = vol ? nombre(vol.value) : 0;
-      var texte = sigleVehicule(sel.selectedOptions[0] ? sel.selectedOptions[0].textContent : '') + (v > 0 ? ' ' + fr(v) + ' m³' : '');
       var specs = car ? [].slice.call(car.selectedOptions).map(function (o) { return o.textContent.replace(/\s+/g, ' ').trim(); }).filter(Boolean) : [];
-      return texte + (specs.length ? ' (' + specs.join(', ') + ')' : '');
+      return vehicule(sigleVehicule(sel.selectedOptions[0] ? sel.selectedOptions[0].textContent : '') + (v > 0 ? ' ' + fr(v) + ' m³' : ''), specs);
     }).filter(Boolean);
   }
-  // Regroupe les véhicules identiques : « 2 PL 50 m³ (Hayon) + 1 VL 20 m³ ».
-  function texteVehicules(liste) {
-    var n = {}, ordre = [];
-    liste.forEach(function (t) { if (!n[t]) { n[t] = 0; ordre.push(t); } n[t]++; });
-    return ordre.sort().map(function (t) { return n[t] + ' ' + t; }).join(' + ') || 'aucun véhicule';
+  function vehicule(t, specs) { return { t: t, specs: specs || [], cle: t + (specs && specs.length ? ' (' + specs.join(', ') + ')' : '') }; }
+  // Regroupe les véhicules identiques : [{ n: 2, t: 'PL 50 m³', specs: ['Hayon'], cle }], triés pour que deux étapes égales se comparent égales.
+  function grouperVehicules(liste) {
+    var par = {}, ordre = [];
+    liste.forEach(function (v) { if (!par[v.cle]) { par[v.cle] = { n: 0, t: v.t, specs: v.specs, cle: v.cle }; ordre.push(v.cle); } par[v.cle].n++; });
+    return ordre.sort().map(function (c) { return par[c]; });
   }
   function chargerDetailMoyens(brut, etapes) {
     if (moyensDetail.sig === brut) return;
@@ -606,6 +605,35 @@
     };
     for (var k = 0; k < 4; k++) suite();
   }
+  // ---------- Moyens par étape : présentation en « blocs de moyens » (refonte du 24/11/2026) ----------
+  // Ce qui compte, c'est où les moyens changent. Les étapes qui se suivent avec exactement les mêmes moyens forment un bloc ;
+  // entre deux blocs, on dit ce qui change (+1 déménageur, PL 50 m³ → PL 30 m³…). Huit étapes identiques = un seul bloc.
+  var ICONES = {
+    homme: '<svg viewBox="0 0 24 24" width="15" height="15" aria-hidden="true"><circle cx="12" cy="7.5" r="3.6" fill="none" stroke="currentColor" stroke-width="1.9"/><path d="M4.8 20c.6-4 3.4-6.2 7.2-6.2s6.600 2.200 7.200 6.200" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"/></svg>',
+    camion: '<svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path d="M2.500 6.500h11v9.500h-11zM13.500 9.500h4.200l3.300 3.400v3.100h-7.500z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><circle cx="7" cy="17.300" r="1.900" fill="#fff" stroke="currentColor" stroke-width="1.800"/><circle cx="17" cy="17.300" r="1.900" fill="#fff" stroke="currentColor" stroke-width="1.800"/></svg>',
+    fleche: '<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M5 12h13M13 6.500l5.500 5.500-5.500 5.500" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+    chevron: '<svg class="gcm-chev" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path d="M6 9.500l6 6 6-6" fill="none" stroke="currentColor" stroke-width="2.200" stroke-linecap="round" stroke-linejoin="round"/></svg>'
+  };
+  var STYLE_MOYENS = '#gc-coherence{font:14px/1.4 inherit;font-family:inherit;color:#1f2a44}#gc-coherence *{box-sizing:border-box}' +
+    '#gc-coherence details{position:relative}#gc-coherence summary{list-style:none;cursor:pointer;user-select:none}#gc-coherence summary::-webkit-details-marker{display:none}' +
+    '.gcm-pill{display:inline-flex;align-items:center;gap:10px;height:40px;padding:0 14px 0 12px;border-radius:999px;background:#fff;border:1px solid #dfe5ee;box-shadow:0 1px 2px rgba(31,42,68,.06);white-space:nowrap;transition:box-shadow .15s,border-color .15s}' +
+    '.gcm-pill:hover{border-color:#c5cfdd;box-shadow:0 2px 8px rgba(31,42,68,.10)}#gc-coherence summary:focus-visible .gcm-pill{outline:2px solid #4a7cf6;outline-offset:2px}' +
+    '.gcm-dot{width:9px;height:9px;border-radius:50%;background:#94a3b8;flex:none}.gcm-pill.ok .gcm-dot{background:#16a34a;box-shadow:0 0 0 3px #dcfce7}.gcm-pill.var .gcm-dot{background:#d97706;box-shadow:0 0 0 3px #fef3c7}' +
+    '.gcm-t{font-weight:600}.gcm-pill.var .gcm-t{color:#92400e}.gcm-s{color:#64748b}' +
+    '.gcm-mini{display:inline-flex;align-items:center;gap:3px;width:84px;height:6px}.gcm-mini i{display:block;height:6px;border-radius:3px;background:#cbd5e1;min-width:5px}.gcm-pill.ok .gcm-mini i{background:#86efac}.gcm-pill.var .gcm-mini i:nth-child(even){background:#fbbf24}' +
+    '.gcm-chev{color:#94a3b8;transition:transform .15s}#gc-coherence details[open] .gcm-chev{transform:rotate(180deg)}' +
+    '.gcm-pop{position:absolute;top:calc(100% + 10px);left:50%;transform:translateX(-50%);width:max-content;max-width:min(94vw,1500px);background:#fff;border:1px solid #dfe5ee;border-radius:16px;box-shadow:0 18px 50px rgba(31,42,68,.18);padding:16px 18px 14px;z-index:40}' +
+    '.gcm-tete{display:flex;align-items:baseline;justify-content:space-between;gap:24px;margin-bottom:12px}.gcm-tete b{font-size:15px}.gcm-tete span{color:#64748b;font-size:12.5px}' +
+    '.gcm-flux{display:flex;flex-wrap:wrap;align-items:stretch;gap:12px 0;max-height:62vh;overflow:auto}.gcm-pas{display:flex;align-items:stretch;flex:none}' +
+    '.gcm-bloc{flex:none;min-width:220px;max-width:300px;border:1px solid #e3e8f0;border-radius:12px;background:#f8fafc;padding:12px 14px}' +
+    '.gcm-per{display:flex;align-items:center;gap:6px;color:#475569;font-size:12.5px;font-variant-numeric:tabular-nums;margin-bottom:9px}.gcm-per b{color:#1f2a44;font-weight:600}.gcm-per em{font-style:normal;color:#94a3b8}' +
+    '.gcm-moy{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px}' +
+    '.gcm-chip{display:inline-flex;align-items:center;gap:6px;padding:5px 10px 5px 8px;border-radius:9px;background:#fff;border:1px solid #dbe2ec;font-weight:600;white-space:nowrap}.gcm-chip svg{color:#4a6fd8;flex:none}.gcm-chip.vide{color:#94a3b8;font-weight:500;border-style:dashed}' +
+    '.gcm-chip small{font-size:11.500px;font-weight:500;color:#475569;background:#eef2f7;border-radius:5px;padding:1px 6px}.gcm-chip.att{color:#94a3b8}' +
+    '.gcm-et{list-style:none;margin:0;padding:8px 0 0;border-top:1px dashed #dbe2ec;display:grid;grid-template-columns:auto auto 1fr;gap:3px 10px;font-size:12.500px;color:#475569;font-variant-numeric:tabular-nums}.gcm-et li{display:contents}.gcm-et .j{color:#94a3b8}.gcm-et .n{color:#1f2a44;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:150px}' +
+    '.gcm-delta{flex:none;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:5px;padding:0 10px;color:#b45309}' +
+    '.gcm-delta span{display:block;padding:3px 9px;border-radius:999px;background:#fef3c7;border:1px solid #fcd34d;color:#92400e;font-size:12.500px;font-weight:600;white-space:nowrap}.gcm-delta span.moins{background:#fff;border-color:#e2c48a;color:#a16207}' +
+    '.gcm-pied{margin:10px 0 0;color:#64748b;font-size:12px;width:0;min-width:100%}';
   function poserCoherence() {
     var cal = document.querySelector('[data-controller~="calendar"]'), bloc = document.getElementById('gc-coherence');
     if (!(CHEMIN.test(location.pathname) || window.__chiffrageApercu) || !cal || !cal.parentElement) { if (bloc) bloc.remove(); return; }
@@ -629,34 +657,50 @@
     }
     if (etapes.length < 2) { bloc.hidden = true; bloc.innerHTML = ''; return; }
     chargerDetailMoyens(brut, etapes);
-    // Tant que le détail n'est pas lu (ou s'il est illisible pour une étape), on affiche les compteurs du calendrier, suivis de « … ».
     var detailPret = moyensDetail.sig === brut && moyensDetail.pret;
-    var vehicules = function (x) {
-      var d = detailPret ? moyensDetail.parItem[x.item] : null;
-      if (d) return texteVehicules(d);
-      var m = []; if (x.vl) m.push(x.vl + ' VL'); if (x.pl) m.push(x.pl + ' PL'); if (x.mm) m.push(x.mm + ' MM');
-      return (m.join(' + ') || 'aucun véhicule') + (!detailPret ? ' …' : d === null ? ' (détail illisible)' : '');
-    };
-    var ecartsH = 0, ecartsV = 0, AMBRE = 'background:#fdecc8;color:#7a4b00;font-weight:600';
-    var lignes = etapes.map(function (x, i) {
-      var p = etapes[i - 1], dh = !!p && p.hommes !== x.hommes, dv = !!p && vehicules(p) !== vehicules(x);
-      if (dh) ecartsH++; if (dv) ecartsV++;
-      var c = 'padding:4px 8px;border-top:1px solid #e3e8ee;white-space:nowrap';
-      return '<tr><td style="' + c + '">Jour ' + x.jour + '</td><td style="' + c + ';font-variant-numeric:tabular-nums">' + x.debut + '–' + x.fin + '</td><td style="' + c + ';max-width:150px;overflow:hidden;text-overflow:ellipsis" title="' + echappe(x.nom) + '">' + echappe(x.nom) + '</td>' +
-        '<td style="' + c + (dh ? ';' + AMBRE : '') + '">' + (dh ? p.hommes + ' → ' : '') + x.hommes + ' dém.</td><td style="' + c + (dv ? ';' + AMBRE : '') + '">' + (dv ? vehicules(p) + ' → ' : '') + vehicules(x) + '</td></tr>';
+    // Véhicules d'une étape : le détail lu dans son formulaire ; à défaut (illisible, ou pas d'adresse), les compteurs du calendrier.
+    etapes.forEach(function (x) {
+      var d = detailPret ? moyensDetail.parItem[x.item] : null, l = [];
+      if (!d) { for (var i = 0; i < x.vl; i++) l.push(vehicule('VL')); for (i = 0; i < x.pl; i++) l.push(vehicule('PL')); for (i = 0; i < x.mm; i++) l.push(vehicule('MM')); }
+      x.veh = grouperVehicules(d || l);
+      x.illisible = detailPret && d === null;
+      x.cle = x.hommes + ' | ' + x.veh.map(function (v) { return v.n + ' ' + v.cle; }).join(' + ');
     });
-    // Détail en colonnes : quatre étapes par colonne, puis on passe à la colonne d'à côté, pour ne pas allonger la page.
-    var colonnes = [];
-    for (var k = 0; k < lignes.length; k += PAR_COLONNE) colonnes.push('<table style="border-collapse:collapse;align-self:flex-start;border-left:' + (k ? '1px solid #cfd6dd' : '0') + '">' + lignes.slice(k, k + PAR_COLONNE).join('') + '</table>');
-    var n = ecartsH + ecartsV, detail = [ecartsH ? ecartsH + ' sur les déménageurs' : '', ecartsV ? ecartsV + ' sur les véhicules' : ''].filter(Boolean).join(', ');
+    // Blocs : suites d'étapes aux moyens identiques.
+    var blocs = [];
+    etapes.forEach(function (x) { var b = blocs[blocs.length - 1]; if (b && b.cle === x.cle) b.etapes.push(x); else blocs.push({ cle: x.cle, hommes: x.hommes, veh: x.veh, etapes: [x] }); });
+    var n = blocs.length - 1, pluriel = function (k, mot) { return k + ' ' + mot + (k > 1 ? 's' : ''); };
+    // Ce qui change d'un bloc au suivant.
+    var deltas = function (a, b) {
+      var o = [], dh = b.hommes - a.hommes, moins = [], plus = [], cles = {};
+      if (dh) o.push('<span>' + (dh > 0 ? '+' : '−') + pluriel(Math.abs(dh), 'déménageur') + '</span>');
+      a.veh.forEach(function (v) { cles[v.cle] = (cles[v.cle] || 0) - v.n; }); b.veh.forEach(function (v) { cles[v.cle] = (cles[v.cle] || 0) + v.n; });
+      Object.keys(cles).sort().forEach(function (c) { if (cles[c] < 0) moins.push([-cles[c], c]); else if (cles[c] > 0) plus.push([cles[c], c]); });
+      if (moins.length === 1 && plus.length === 1 && moins[0][0] === plus[0][0]) o.push('<span>' + (moins[0][0] > 1 ? moins[0][0] + ' ' : '') + echappe(moins[0][1]) + ' → ' + echappe(plus[0][1]) + '</span>');
+      else { plus.forEach(function (p) { o.push('<span>+ ' + p[0] + ' ' + echappe(p[1]) + '</span>'); }); moins.forEach(function (m) { o.push('<span class="moins">− ' + m[0] + ' ' + echappe(m[1]) + '</span>'); }); }
+      return o.join('');
+    };
+    var carte = function (b) {
+      var p = b.etapes[0], d = b.etapes[b.etapes.length - 1];
+      var periode = '<b>Jour ' + p.jour + '</b> ' + p.debut + ' <em>→</em> ' + (d.jour !== p.jour ? '<b>Jour ' + d.jour + '</b> ' : '') + d.fin;
+      var moyens = '<span class="gcm-chip' + (b.hommes ? '' : ' vide') + '">' + ICONES.homme + (b.hommes ? pluriel(b.hommes, 'déménageur') : 'aucun déménageur') + '</span>' +
+        (b.veh.length ? b.veh.map(function (v) { return '<span class="gcm-chip">' + ICONES.camion + v.n + ' ' + echappe(v.t) + v.specs.map(function (s) { return '<small>' + echappe(s) + '</small>'; }).join('') + '</span>'; }).join('') : '<span class="gcm-chip vide">' + ICONES.camion + 'aucun véhicule</span>') +
+        (detailPret ? (b.etapes.some(function (e) { return e.illisible; }) ? '<span class="gcm-chip att">détail illisible</span>' : '') : '<span class="gcm-chip att">volume et spécificités…</span>');
+      return '<section class="gcm-bloc"><div class="gcm-per">' + periode + '</div><div class="gcm-moy">' + moyens + '</div><ul class="gcm-et">' +
+        b.etapes.map(function (e) { return '<li><span class="j">J' + e.jour + '</span><span>' + e.debut + '–' + e.fin + '</span><span class="n" title="' + echappe(e.nom) + '">' + echappe(e.nom) + '</span></li>'; }).join('') + '</ul></section>';
+    };
+    // Chaque changement reste collé au bloc qu'il introduit, même quand la ligne passe à la suivante.
+    var flux = blocs.map(function (b, i) { return '<div class="gcm-pas">' + (i ? '<div class="gcm-delta" title="Ce qui change à partir de cette étape">' + deltas(blocs[i - 1], b) + ICONES.fleche + '</div>' : '') + carte(b) + '</div>'; }).join('');
+    // Mini-frise dans la pastille : un segment par bloc, large comme son nombre d'étapes.
+    var mini = '<span class="gcm-mini" aria-hidden="true">' + blocs.map(function (b) { return '<i style="flex:' + b.etapes.length + '"></i>'; }).join('') + '</span>';
     bloc.hidden = false;
-    bloc.style.cssText = (ligne ? 'position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);z-index:30;' : 'position:relative;margin:0 0 12px;') + 'font:13.5px/1.4 system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif;color:#17212b';
-    // Toujours replié à l'arrivée : le titre dit s'il y a des changements, le détail se déplie par-dessus le calendrier sans décaler la page.
-    bloc.innerHTML = '<details' + (ouvert ? ' open' : '') + ' style="position:relative"><summary style="cursor:pointer;padding:7px 14px;border:1px solid ' + (n ? '#f0c36d' : '#d9dfe5') + ';border-radius:8px;background:' + (n ? '#fff8e8' : '#fff') + ';font-weight:600;white-space:nowrap;' + (n ? 'color:#7a4b00' : 'color:#3a4856') + '">' +
-      (n ? 'Moyens : ' + n + ' changement' + (n > 1 ? 's' : '') + ' d\'une étape à la suivante (' + detail + ')' : 'Moyens identiques sur les ' + etapes.length + ' étapes') + '</summary>' +
-      '<div style="position:absolute;top:calc(100% + 6px);left:50%;transform:translateX(-50%);width:max-content;max-width:min(92vw,1500px);background:#fff;border:1px solid #cfd6dd;border-radius:8px;box-shadow:0 8px 24px rgba(15,23,30,.18)">' +
-      '<div style="display:flex;flex-wrap:wrap;gap:0;padding:6px 4px 0;max-height:60vh;overflow:auto">' + colonnes.join('') + '</div>' +
-      '<p style="margin:0;padding:6px 12px 8px;color:#5a6876;font-size:12.5px">VL véhicule léger · PL poids lourd · MM monte-meuble, avec le volume et, entre parenthèses, les spécificités demandées. En surbrillance : ce qui change par rapport à l\'étape précédente. Information seule.</p></div></details>';
+    bloc.style.cssText = ligne ? 'position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);z-index:30' : 'position:relative;margin:0 0 12px';
+    // Toujours replié à l'arrivée : la pastille dit s'il y a des changements, le détail se déplie par-dessus le calendrier sans décaler la page.
+    bloc.innerHTML = '<style>' + STYLE_MOYENS + '</style><details' + (ouvert ? ' open' : '') + '><summary><span class="gcm-pill ' + (n ? 'var' : 'ok') + '"><span class="gcm-dot"></span>' +
+      '<span class="gcm-t">' + (n ? pluriel(n, 'changement') + ' de moyens' : 'Moyens constants') + '</span><span class="gcm-s">' + etapes.length + ' étapes</span>' + mini + ICONES.chevron + '</span></summary>' +
+      '<div class="gcm-pop"><div class="gcm-tete"><b>Moyens par étape</b><span>' + (n ? pluriel(blocs.length, 'bloc') + ' de moyens sur ' + etapes.length + ' étapes' : 'Les mêmes moyens du début à la fin') + '</span></div>' +
+      '<div class="gcm-flux">' + flux + '</div>' +
+      '<p class="gcm-pied">VL véhicule léger · PL poids lourd · MM monte-meuble. Les étapes qui se suivent avec les mêmes moyens sont regroupées. Information seule.</p></div></details>';
   }
   // Un clic ailleurs dans la page replie le détail des moyens.
   document.addEventListener('click', function (e) { var b = document.getElementById('gc-coherence'), d = b && b.querySelector('details[open]'); if (d && !b.contains(e.target)) d.removeAttribute('open'); });
