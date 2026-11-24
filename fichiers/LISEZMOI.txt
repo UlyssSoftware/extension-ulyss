@@ -183,3 +183,9 @@ VERSION 1.4.6 — MOYENS PAR ÉTAPE : NOUVELLE PRÉSENTATION EN BLOCS
 - Déplié : les étapes qui se suivent avec les mêmes moyens sont regroupées en un bloc (période, déménageurs, véhicules avec
   volume et spécificités, liste des étapes). Entre deux blocs, ce qui change est écrit en clair : « +1 déménageur »,
   « PL 50 m³ (Hayon) → PL 30 m³ », « + 1 VL 20 m³ ».
+
+VERSION 1.4.7 — MOYENS PAR ÉTAPE : REGROUPEMENT PAR JOUR QUAND IL Y A DES ÉCARTS
+- Quand les moyens varient, le détail s'affiche en une colonne par jour. Dans chaque jour, les étapes aux mêmes moyens restent
+  regroupées, et ce qui change est écrit en ambre à l'endroit où ça change, y compris en tête de journée par rapport à la veille
+  (ou « Mêmes moyens que la veille »).
+- Quand les moyens sont constants, une seule carte résume toute la phase.

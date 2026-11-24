@@ -631,7 +631,12 @@
     '.gcm-chip{display:inline-flex;align-items:center;gap:6px;padding:5px 10px 5px 8px;border-radius:9px;background:#fff;border:1px solid #dbe2ec;font-weight:600;white-space:nowrap}.gcm-chip svg{color:#4a6fd8;flex:none}.gcm-chip.vide{color:#94a3b8;font-weight:500;border-style:dashed}' +
     '.gcm-chip small{font-size:11.500px;font-weight:500;color:#475569;background:#eef2f7;border-radius:5px;padding:1px 6px}.gcm-chip.att{color:#94a3b8}' +
     '.gcm-et{list-style:none;margin:0;padding:8px 0 0;border-top:1px dashed #dbe2ec;display:grid;grid-template-columns:auto auto 1fr;gap:3px 10px;font-size:12.500px;color:#475569;font-variant-numeric:tabular-nums}.gcm-et li{display:contents}.gcm-et .j{color:#94a3b8}.gcm-et .n{color:#1f2a44;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:150px}' +
-    '.gcm-delta{flex:none;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:5px;padding:0 10px;color:#b45309}' +
+    '.gcm-jours{display:flex;flex-wrap:wrap;align-items:flex-start;gap:12px;max-height:66vh;overflow:auto}' +
+    '.gcm-jour{flex:none;min-width:236px;max-width:330px;border:1px solid #e3e8f0;border-radius:14px;background:#f8fafc;padding:12px}' +
+    '.gcm-jour h4{display:flex;align-items:baseline;justify-content:space-between;gap:16px;margin:0 2px 10px;font-size:14.500px;font-weight:700;color:#1f2a44}.gcm-jour h4 span{font-size:12px;font-weight:500;color:#64748b}' +
+    '.gcm-seg{background:#fff;border:1px solid #e3e8f0;border-radius:11px;padding:10px 12px}.gcm-seg .gcm-per{margin-bottom:8px}.gcm-seg .gcm-moy{margin-bottom:8px}.gcm-et.sj{grid-template-columns:auto 1fr}' +
+    '.gcm-meme{margin:0 2px 8px;color:#64748b;font-size:12.500px}' +
+    '.gcm-delta{display:flex;flex-wrap:wrap;align-items:center;gap:5px;margin:8px 2px;color:#b45309}.gcm-delta svg{transform:rotate(90deg);flex:none}.gcm-jour>.gcm-delta:nth-child(2){margin-top:0}' +
     '.gcm-delta span{display:block;padding:3px 9px;border-radius:999px;background:#fef3c7;border:1px solid #fcd34d;color:#92400e;font-size:12.500px;font-weight:600;white-space:nowrap}.gcm-delta span.moins{background:#fff;border-color:#e2c48a;color:#a16207}' +
     '.gcm-pied{margin:10px 0 0;color:#64748b;font-size:12px;width:0;min-width:100%}';
   function poserCoherence() {
@@ -680,17 +685,41 @@
       else { plus.forEach(function (p) { o.push('<span>+ ' + p[0] + ' ' + echappe(p[1]) + '</span>'); }); moins.forEach(function (m) { o.push('<span class="moins">− ' + m[0] + ' ' + echappe(m[1]) + '</span>'); }); }
       return o.join('');
     };
-    var carte = function (b) {
-      var p = b.etapes[0], d = b.etapes[b.etapes.length - 1];
-      var periode = '<b>Jour ' + p.jour + '</b> ' + p.debut + ' <em>→</em> ' + (d.jour !== p.jour ? '<b>Jour ' + d.jour + '</b> ' : '') + d.fin;
-      var moyens = '<span class="gcm-chip' + (b.hommes ? '' : ' vide') + '">' + ICONES.homme + (b.hommes ? pluriel(b.hommes, 'déménageur') : 'aucun déménageur') + '</span>' +
+    var moyens = function (b) {
+      return '<span class="gcm-chip' + (b.hommes ? '' : ' vide') + '">' + ICONES.homme + (b.hommes ? pluriel(b.hommes, 'déménageur') : 'aucun déménageur') + '</span>' +
         (b.veh.length ? b.veh.map(function (v) { return '<span class="gcm-chip">' + ICONES.camion + v.n + ' ' + echappe(v.t) + v.specs.map(function (s) { return '<small>' + echappe(s) + '</small>'; }).join('') + '</span>'; }).join('') : '<span class="gcm-chip vide">' + ICONES.camion + 'aucun véhicule</span>') +
         (detailPret ? (b.etapes.some(function (e) { return e.illisible; }) ? '<span class="gcm-chip att">détail illisible</span>' : '') : '<span class="gcm-chip att">volume et spécificités…</span>');
-      return '<section class="gcm-bloc"><div class="gcm-per">' + periode + '</div><div class="gcm-moy">' + moyens + '</div><ul class="gcm-et">' +
-        b.etapes.map(function (e) { return '<li><span class="j">J' + e.jour + '</span><span>' + e.debut + '–' + e.fin + '</span><span class="n" title="' + echappe(e.nom) + '">' + echappe(e.nom) + '</span></li>'; }).join('') + '</ul></section>';
     };
-    // Chaque changement reste collé au bloc qu'il introduit, même quand la ligne passe à la suivante.
-    var flux = blocs.map(function (b, i) { return '<div class="gcm-pas">' + (i ? '<div class="gcm-delta" title="Ce qui change à partir de cette étape">' + deltas(blocs[i - 1], b) + ICONES.fleche + '</div>' : '') + carte(b) + '</div>'; }).join('');
+    var liste = function (etapes, avecJour) {
+      return '<ul class="gcm-et' + (avecJour ? '' : ' sj') + '">' + etapes.map(function (e) { return '<li>' + (avecJour ? '<span class="j">J' + e.jour + '</span>' : '') + '<span>' + e.debut + '–' + e.fin + '</span><span class="n" title="' + echappe(e.nom) + '">' + echappe(e.nom) + '</span></li>'; }).join('') + '</ul>';
+    };
+    var flux;
+    if (!n) {
+      // Moyens constants : une seule carte, du début à la fin de la phase.
+      var p = etapes[0], d = etapes[etapes.length - 1];
+      flux = '<div class="gcm-flux"><section class="gcm-bloc"><div class="gcm-per"><b>Jour ' + p.jour + '</b> ' + p.debut + ' <em>→</em> ' + (d.jour !== p.jour ? '<b>Jour ' + d.jour + '</b> ' : '') + d.fin + '</div><div class="gcm-moy">' + moyens(blocs[0]) + '</div>' + liste(etapes, true) + '</section></div>';
+    } else {
+      // Des écarts : une colonne par jour (demande du 24/11/2026). Dans chaque jour, les étapes aux mêmes moyens restent regroupées,
+      // et ce qui change est écrit là où ça change — y compris en tête de journée, par rapport à la veille.
+      var jours = [], precedent = null;
+      etapes.forEach(function (x) {
+        var j = jours[jours.length - 1];
+        if (!j || j.jour !== x.jour) { j = { jour: x.jour, segs: [], n: 0 }; jours.push(j); }
+        var sgm = j.segs[j.segs.length - 1];
+        if (sgm && sgm.cle === x.cle) sgm.etapes.push(x);
+        else { j.segs.push({ cle: x.cle, hommes: x.hommes, veh: x.veh, etapes: [x], avant: precedent }); }
+        precedent = j.segs[j.segs.length - 1]; j.n++;
+      });
+      flux = '<div class="gcm-jours">' + jours.map(function (j) {
+        return '<section class="gcm-jour"><h4>Jour ' + j.jour + '<span>' + pluriel(j.n, 'étape') + '</span></h4>' + j.segs.map(function (sgm, k) {
+          var tete = '';
+          if (sgm.avant && sgm.avant.cle !== sgm.cle) tete = '<div class="gcm-delta" title="Ce qui change à partir de cette étape">' + ICONES.fleche + deltas(sgm.avant, sgm) + '</div>';
+          else if (sgm.avant && !k) tete = '<div class="gcm-meme">Mêmes moyens que la veille</div>';
+          var e0 = sgm.etapes[0], e1 = sgm.etapes[sgm.etapes.length - 1];
+          return tete + '<div class="gcm-seg"><div class="gcm-per"><b>' + e0.debut + '</b> <em>→</em> <b>' + e1.fin + '</b></div><div class="gcm-moy">' + moyens(sgm) + '</div>' + liste(sgm.etapes, false) + '</div>';
+        }).join('') + '</section>';
+      }).join('') + '</div>';
+    }
     // Mini-frise dans la pastille : un segment par bloc, large comme son nombre d'étapes.
     var mini = '<span class="gcm-mini" aria-hidden="true">' + blocs.map(function (b) { return '<i style="flex:' + b.etapes.length + '"></i>'; }).join('') + '</span>';
     bloc.hidden = false;
@@ -698,8 +727,8 @@
     // Toujours replié à l'arrivée : la pastille dit s'il y a des changements, le détail se déplie par-dessus le calendrier sans décaler la page.
     bloc.innerHTML = '<style>' + STYLE_MOYENS + '</style><details' + (ouvert ? ' open' : '') + '><summary><span class="gcm-pill ' + (n ? 'var' : 'ok') + '"><span class="gcm-dot"></span>' +
       '<span class="gcm-t">' + (n ? pluriel(n, 'changement') + ' de moyens' : 'Moyens constants') + '</span><span class="gcm-s">' + etapes.length + ' étapes</span>' + mini + ICONES.chevron + '</span></summary>' +
-      '<div class="gcm-pop"><div class="gcm-tete"><b>Moyens par étape</b><span>' + (n ? pluriel(blocs.length, 'bloc') + ' de moyens sur ' + etapes.length + ' étapes' : 'Les mêmes moyens du début à la fin') + '</span></div>' +
-      '<div class="gcm-flux">' + flux + '</div>' +
+      '<div class="gcm-pop"><div class="gcm-tete"><b>Moyens par étape</b><span>' + (n ? 'Jour par jour · ce qui change est en ambre' : 'Les mêmes moyens du début à la fin') + '</span></div>' +
+      flux +
       '<p class="gcm-pied">VL véhicule léger · PL poids lourd · MM monte-meuble. Les étapes qui se suivent avec les mêmes moyens sont regroupées. Information seule.</p></div></details>';
   }
   // Un clic ailleurs dans la page replie le détail des moyens.
