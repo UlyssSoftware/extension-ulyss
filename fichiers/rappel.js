@@ -142,11 +142,56 @@
     return null;
   }
 
+  /**
+   * Équipe affectée dans le Planning au jour 1 de la phase (relevé sur le staging le 25/11/2026) :
+   *  1. vue compacte du jour (/exploitation_requirements/affectation?…&view=compact, ~3-4 s) : une carte
+   *     [id^=card_exploitation_requirement_<er>] par chantier, titre .text-bold = « NOM I. » du client ;
+   *  2. /exploitation_requirements/<er>/edit (~5 s) des cartes dont le titre commence par le nom du client :
+   *     on garde celles qui pointent vers contracts/<dossier>/phases/<phase> (contrôle sans faux positif) ;
+   *  3. selects [collaborator_id] du formulaire simple_collaborator_affectation, dans l'ordre : position 1 = chef d'équipe.
+   * Lectures en série, jamais en parallèle (le Planning ralentit de moitié sinon). Renvoie [{id, court}] ou null.
+   */
+  async function equipeDuPlanning(jour1, nomClient, dossierId, phaseId, suivre) {
+    const norm = (s) => String(s || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toUpperCase().replace(/[^A-Z0-9]+/g, ' ').trim();
+    const nom = norm(nomClient);
+    if (!jour1 || !nom || !dossierId) return null;
+    suivre('Lecture du Planning du ' + jour1.split('-').reverse().join('/') + '…');
+    const s = '&structures%5B%5D=1&structures%5B%5D=2&structures%5B%5D=3';
+    const html = await fetch(`/exploitation_requirements/affectation?date=${jour1}${s}&view=compact`, { credentials: 'same-origin' }).then((r) => r.text());
+    const doc = new DOMParser().parseFromString(html, 'text/html');
+    const cartes = [...doc.querySelectorAll('[id^="card_exploitation_requirement"]')]
+      .filter((c) => norm(c.querySelector('.text-bold')?.textContent).startsWith(nom))
+      .map((c) => c.id.replace(/\D/g, ''))
+      .slice(0, 4);
+    if (!cartes.length) return null;
+    const cible = phaseId ? `contracts/${dossierId}/phases/${phaseId}` : `contracts/${dossierId}/`;
+    const equipe = [];
+    for (const [i, er] of cartes.entries()) {
+      suivre(`Lecture de l'affectation (${i + 1}/${cartes.length})…`);
+      const h = await fetch(`/exploitation_requirements/${er}/edit`, { credentials: 'same-origin' }).then((r) => (r.ok ? r.text() : ''));
+      if (!h.includes(cible)) continue;
+      const d = new DOMParser().parseFromString(h, 'text/html');
+      const form = d.querySelector('form[action*="simple_collaborator_affectation"]') || d;
+      for (const sel of form.querySelectorAll('select[name*="[collaborator_id]"]')) {
+        const o = sel.selectedOptions[0];
+        if (o && o.value && !equipe.some((m) => m.id === o.value)) equipe.push({ id: o.value, court: o.textContent.trim() });
+      }
+    }
+    return equipe.length ? equipe : null;
+  }
+
+  /** Prénom de la fiche collaborateur : titre « Collaborateurs - Prénom NOM ». */
+  function prenomFiche(doc) {
+    const t = (doc.querySelector('h1')?.textContent || '').replace(/\s+/g, ' ').replace(/^.*?-\s*/, '').trim();
+    return t.split(' ').filter((m) => m !== m.toUpperCase()).join(' ');
+  }
+
   /** Photo de la fiche collaborateur, recadrée en carré 300 × 300, en JPEG base64 (ou '' si absente). */
-  async function photoCollaborateur(id) {
+  async function photoCollaborateur(id, fiche) {
     try {
       const html = await fetch(`/collaborators/${id}`, { credentials: 'same-origin' }).then((r) => r.text());
       const doc = new DOMParser().parseFromString(html, 'text/html');
+      if (fiche) fiche.prenom = prenomFiche(doc);
       const img = [...doc.querySelectorAll('img')].find((i) => /active_storage/.test(i.getAttribute('src') || '') && !/logotype|logo/i.test(decodeURIComponent(i.getAttribute('src'))));
       if (!img) return '';
       const blob = await fetch(img.getAttribute('src'), { credentials: 'same-origin' }).then((r) => (r.ok ? r.blob() : null));
@@ -251,7 +296,7 @@
     const fNom = el('input', { value: client.nom });
     const fMail = el('input', { type: 'email', value: client.email });
     const fRef = el('input', { value: client.reference });
-    const fPhase = el('select', { onchange: () => { phase = phases[+fPhase.value]; jours = joursDePhase(phase); initMembres(); dessinerJours(); dessinerEquipe(); } },
+    const fPhase = el('select', { onchange: () => { phase = phases[+fPhase.value]; jours = joursDePhase(phase); initMembres(); dessinerJours(); dessinerEquipe(); remplirDepuisPlanning(); } },
       phases.map((p, i) => el('option', { value: i }, p.libelle)));
     const relatif = () => jours.some((j) => !j.date || j.relatif);
     const fJour1 = el('input', { type: 'date', onchange: () => { appliquerJour1(); dessinerJours(); } });
@@ -267,6 +312,7 @@
 
     const zoneJours = el('div');
     const zoneEquipe = el('div');
+    const noteEquipe = el('div', { class: 'note' });
     const msg = el('div', { class: 'msg' });
     const cadre = el('iframe', { title: 'Aperçu du mail' });
 
@@ -406,7 +452,8 @@
           zoneJours,
           el('datalist', { id: 'types-etape' }, ['Chargement', 'Livraison', 'Emballage', 'Trajet'].map((t) => el('option', { value: t }))),
           el('h4', {}, 'Équipe'),
-          el('div', { class: 'note' }, 'Prénom seul dans le mail. « Lier » va chercher la fiche Ulyss et sa photo. Sans photo, une silhouette s\'affiche.'),
+          el('div', { class: 'note' }, 'Reprise automatique du Planning (jour 1). Prénom seul dans le mail, modifiable. « Lier » va chercher une autre fiche Ulyss et sa photo.'),
+          noteEquipe,
           zoneEquipe),
         el('div', { class: 'col' }, el('h4', {}, 'Aperçu'), cadre)),
       el('div', { class: 'pied' }, msg, bForcer, bApercu, bEnvoyer));
@@ -414,6 +461,36 @@
     racine.append(el('div', { class: 'voile', onclick: (e) => { if (e.target === e.currentTarget) fermer(); } }, fenetre));
     dessinerJours();
     dessinerEquipe();
+    remplirDepuisPlanning();
+
+    /** Équipe reprise du Planning (jour 1), sans écraser ce qui a déjà été saisi à la main. */
+    async function remplirDepuisPlanning() {
+      const jour1 = (jours[0] && jours[0].date) || (periode && periode.debut) || '';
+      const dossierId = (location.pathname.match(CHEMIN) || [])[1];
+      if (!jour1) { noteEquipe.textContent = 'Organisation non validée : équipe à saisir.'; return; }
+      const phaseVisee = phase;
+      let equipe = null;
+      try {
+        equipe = await equipeDuPlanning(jour1, client.nom, dossierId, phase.id, (t) => { noteEquipe.textContent = t; });
+      } catch (e) { equipe = null; }
+      if (phase !== phaseVisee || !hote.isConnected) return;
+      if (!equipe) { noteEquipe.textContent = 'Aucune personne affectée dans le Planning au jour 1 : équipe à saisir.'; return; }
+      if (membres.some((m) => m.prenom.trim() || m.id)) { noteEquipe.textContent = 'Saisie manuelle en cours : équipe du Planning non reprise.'; return; }
+      membres = equipe.map((p, i) => ({ prenom: p.court, role: i === 0 ? ROLES[0] : ROLES[1], id: p.id, vignette: '' }));
+      dessinerEquipe();
+      for (const [i, m] of membres.entries()) {
+        noteEquipe.textContent = `Photos de l'équipe (${i + 1}/${membres.length})…`;
+        const fiche = {};
+        m.vignette = await photoCollaborateur(m.id, fiche);
+        if (fiche.prenom) m.prenom = fiche.prenom;
+        if (!hote.isConnected) return;
+        dessinerEquipe();
+      }
+      const sansPhoto = membres.filter((m) => !m.vignette).length;
+      noteEquipe.textContent = `Équipe reprise du Planning (jour 1, ordre des positions : la 1re est chef d'équipe)` +
+        (sansPhoto ? ` — ${sansPhoto} sans photo, silhouette affichée.` : '.');
+      bEnvoyer.disabled = true;
+    }
   }
 
   function alerteSimple(texte) {
