@@ -1,5 +1,5 @@
 {
- "version": "1.6.1",
+ "version": "1.7.0",
  "date": "2026-11-25",
  "fichiers": [
   "LISEZMOI.txt",
@@ -15,9 +15,9 @@
   "content.js": "f6d5142a6b5f8f6ddc81dbc26225fe282b8c7d49320a0d101ab85faf58ab6fc3",
   "engine.js": "9148cdd217de6df651c87274ea79116110bdff7a6db3d097127c41c498139385",
   "fond.js": "382885c1ea676505aa7c7f4e70b4db9f93e79fa8d2613e424d6d3aa27d09ebb7",
-  "manifest.json": "0a5bfc9917886be965831df09897119d45354d8fd7644ba0a8091b6d098923ae",
-  "rdv.js": "86d92730b0d3e3b1232c350efca7c8b677b9e8a65494ee700732560699ed309a",
+  "manifest.json": "2698c7c93c77e7a11a8d368ecf307ebcc762184ae4e101653c6741cafec52936",
+  "rdv.js": "c0aa049cb45fbddf4e20cea2fafe696f4d3dd8fa4f011a64ff397c76320cdf0b",
   "tarifs.json": "cd330cd799857d9afbe404c18c38d398beba03b46852c0413e7a21c487da54dd"
  },
- "reference": "85f01c24b90434fae0a831924d712fe2c603f73a"
+ "reference": "3bbbd23a95bba1a9d013c1874d0f0eca99388f4a"
 }
