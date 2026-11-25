@@ -1,5 +1,5 @@
 {
- "version": "1.8.0",
+ "version": "1.8.1",
  "date": "2026-11-25",
  "fichiers": [
   "LISEZMOI.txt",
@@ -16,10 +16,10 @@
   "content.js": "f6d5142a6b5f8f6ddc81dbc26225fe282b8c7d49320a0d101ab85faf58ab6fc3",
   "engine.js": "9148cdd217de6df651c87274ea79116110bdff7a6db3d097127c41c498139385",
   "fond.js": "96b979f2bf4fed43fb4bd7c62e4dd553c67a109ac09f74d4b3500c524ef88eec",
-  "manifest.json": "f72eb7b88de1a5ee3f0ea22b2ba1c70e65d731dda394e211807aeb79a4c3f393",
-  "rappel.js": "7526689e534771ace9bc8526835200c9793c4dfc84a674ce2ce306f52a727e75",
+  "manifest.json": "414a153b1d32451b5ff45bebe362317412b5d50d21848a152613e607201269cc",
+  "rappel.js": "3b5a4895e56153ab5820f098810e4f6c8310d6b2f10c2921d66a2a786d71382f",
   "rdv.js": "c0aa049cb45fbddf4e20cea2fafe696f4d3dd8fa4f011a64ff397c76320cdf0b",
   "tarifs.json": "cd330cd799857d9afbe404c18c38d398beba03b46852c0413e7a21c487da54dd"
  },
- "reference": "4c3a14dcf072ce09282f3eb62ce3b8205aba8ce3"
+ "reference": "45505558e82344b2db4f6327e7534ec961382a7e"
 }
