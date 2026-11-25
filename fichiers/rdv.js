@@ -7,8 +7,13 @@
   window.__extUlyssRdv = true;
 
   // Mise en service : staging d'abord (essais avec sa propre adresse), production quand Guillaume l'aura validé.
-  var EN_PRODUCTION = false;
+  // Ouvert en production le 25/11/2026 (Guillaume), après un envoi réel validé sur le staging.
+  var EN_PRODUCTION = true;
   var HOTES = EN_PRODUCTION ? /^(fraisseix\.staging\.unova\.fr|ulyss\.fr)$/ : /^fraisseix\.staging\.unova\.fr$/;
+  // Agenda : le bouton « Valider » de la fenêtre « Nouveau rendez-vous » est remplacé par « Confirmer le RDV » (enregistre le
+  // rendez-vous dans Ulyss, le relit, puis envoie le mail). Pour l'instant l'aperçu du mail est toujours montré ; à terme,
+  // si tout va bien, Guillaume pourra le retirer (passer à false : envoi direct après enregistrement).
+  var APERCU_AGENDA = true;
   var CHEMIN = /^\/contracts\/(\d+)\/?$/;
   var SOCIETES = ['F'];   // lettre après C ou D dans le numéro : F Fraisseix (B Bardon, L LDL quand leur modèle existera)
   var STAGING = location.hostname === 'fraisseix.staging.unova.fr';
@@ -175,7 +180,8 @@
     }).catch(function (e) { corps.innerHTML = '<div class="msg ko">Lecture impossible : ' + echapper(e && e.message || e) + '</div>'; });
   }
 
-  function formulaire(f, dossier, d, lieu) {
+  function formulaire(f, dossier, d, lieu, opts) {
+    opts = opts || {};
     var v = {
       client_civilite: d.client.civilite || '', client_nom: d.client.nom || '', client_email: d.client.email || '',
       rdv_date: d.rdv_date, rdv_heure: d.rdv_heure,
@@ -205,10 +211,12 @@
     h += '<h4>Rendez-vous</h4>';
     if (d.lieux.length > 1) h += '<div class="lieu" style="margin-bottom:8px"><label>Lieu du rendez-vous</label><select name="lieu">' + d.lieux.map(function (l, i) { return '<option value="' + l.id + '"' + (i ? '' : ' selected') + '>' + echapper(l.titre) + '</option>'; }).join('') + '</select></div>';
     h += groupe('', ['rdv_date', 'rdv_heure', 'rdv_adresse', 'rdv_cp', 'rdv_ville', 'rdv_complement']).replace('<h4></h4>', '');
+    if (opts.rdvFige) h += '<div style="color:#4a5866;font-size:12px;margin-top:4px">Date, heure et adresse viennent de la fenêtre de l\'agenda : pour les changer, fermez ici et modifiez-les dans Ulyss.</div>';
     h += groupe('Commercial', ['commercial_prenom', 'commercial_nom']);
     h += '<div class="msg"></div>';
     var corps = f.querySelector('.c');
     corps.innerHTML = h;
+    if (opts.rdvFige) ['rdv_date', 'rdv_heure', 'rdv_adresse', 'rdv_cp', 'rdv_ville', 'rdv_complement'].forEach(function (k) { var e = corps.querySelector('[name=' + k + ']'); if (e) e.readOnly = true; });
     var boutons = document.createElement('div');
     boutons.className = 'b';
     f.querySelector('.f').appendChild(boutons);
@@ -293,20 +301,129 @@
         dire('Objet : ' + (j.objet || ''));
         boutons.innerHTML = '';
         bouton('Modifier', 's', function () { dire(''); retourFormulaire(); });
-        bouton('Envoyer à ' + o.client_email, 'p', function () {
-          dire('Envoi en cours…');
-          appeler(o, function (k) {
+        bouton(opts.avantEnvoi ? 'Enregistrer et envoyer à ' + o.client_email : 'Envoyer à ' + o.client_email, 'p', function () {
+          var envoyer = function () { dire('Envoi en cours…'); appeler(o, fin); };
+          if (!opts.avantEnvoi) { envoyer(); return; }
+          occupe(true);
+          dire('Enregistrement du rendez-vous dans Ulyss…');
+          opts.avantEnvoi().then(function () { occupe(false); envoyer(); }, function (e) { occupe(false); dire((e && e.message) || String(e), 'ko'); });
+        });
+        var fin = function (k) {
             boutons.innerHTML = '';
             bouton('Fermer', 'p', function () { f.remove(); });
             var esp = k.espace && k.espace.raison !== 'désactivé' ? (k.espace.fait ? ' Espace client préparé.' : ' Espace client non préparé (' + k.espace.raison + ').') : '';
-            dire('Confirmation envoyée à ' + (k.destinataire || o.client_email) + (k.copie_envoyes ? ' — copie rangée dans « ' + k.copie_envoyes + ' ».' : ' — pas de copie dans les « Envoyés ».') + esp, 'ok');
-          });
-        });
+            dire((opts.avantEnvoi ? 'Rendez-vous enregistré dans Ulyss. ' : '') + 'Confirmation envoyée à ' + (k.destinataire || o.client_email) + (k.copie_envoyes ? ' — copie rangée dans « ' + k.copie_envoyes + ' ».' : ' — pas de copie dans les « Envoyés ».') + esp, 'ok');
+        };
+        if (opts.envoiDirect) boutons.querySelector('button.p').click();
       });
     };
     retourFormulaire();
+    if (opts.envoiDirect) apercu();   // sans aperçu à montrer : on enchaîne aperçu (contrôles du script) puis envoi
   }
 
-  new MutationObserver(poserBouton).observe(document.documentElement, { childList: true, subtree: true });
+  // ---------- Agenda : « Confirmer le RDV » à la place de « Valider » ----------
+  // Fenêtre #modal_agenda_item-js, formulaire #form_agenda_item-js, bouton natif a#submit_agenda_item-js (le contrôleur
+  // de l'agenda d'Ulyss l'écoute et enregistre en JSON). Notre bouton ne s'affiche que pour un rendez-vous (type 1) lié à un
+  // dossier d'une société active ; sinon le « Valider » d'Ulyss reste tel quel. L'enregistrement passe par le bouton natif
+  // (Ulyss fait exactement ce qu'il fait d'habitude), puis on relit l'agenda avant d'envoyer le mail.
+  function champ(form, nom) { var e = form.querySelector('[name="' + nom + '"]'); return e ? (e.tagName === 'SELECT' ? (e.selectedOptions[0] || {}) : e) : {}; }
+  function etatAgenda() {
+    var modale = document.getElementById('modal_agenda_item-js'), form = document.getElementById('form_agenda_item-js'), natif = document.getElementById('submit_agenda_item-js');
+    if (!modale || !form || !natif) return null;
+    var type = champ(form, 'agenda_item[agenda_type_id]').value;
+    var dossier = champ(form, 'agenda_item[contract_id]');
+    var lettre = (texte(dossier.textContent).match(/^DGT[CD]([A-Z])/) || [])[1];
+    return { modale: modale, form: form, natif: natif, actif: type === '1' && !!dossier.value && SOCIETES.indexOf(lettre) >= 0 };
+  }
+  function poserBoutonAgenda() {
+    if (!HOTES.test(location.hostname) && !envoiEssai) return;
+    var e = etatAgenda();
+    if (!e) return;
+    var notre = document.getElementById('gc-rdv-agenda');
+    if (!notre) {
+      notre = document.createElement('a');
+      notre.id = 'gc-rdv-agenda';
+      notre.href = '#';
+      notre.className = e.natif.className;
+      notre.textContent = 'Confirmer le RDV';
+      notre.title = 'Enregistre le rendez-vous dans Ulyss et envoie la confirmation au client (Extension Ulyss)';
+      notre.addEventListener('click', function (ev) { ev.preventDefault(); ouvrirDepuisAgenda(); });
+      e.natif.insertAdjacentElement('afterend', notre);
+      e.form.addEventListener('change', poserBoutonAgenda);
+    }
+    notre.style.display = e.actif ? '' : 'none';
+    e.natif.style.display = e.actif ? 'none' : '';
+  }
+  function ouvrirDepuisAgenda() {
+    var e = etatAgenda();
+    if (!e || !e.actif) return;
+    var form = e.form;
+    var debut = String(champ(form, 'agenda_item[start_at]').value || '');          // 2026-12-03T10:00
+    var dossierOpt = champ(form, 'agenda_item[contract_id]'), clientOpt = champ(form, 'agenda_item[customer_id]');
+    var d = {
+      reference: texte(dossierOpt.textContent), lieux: [], avertissements: [],
+      rdv_date: debut.slice(0, 10), rdv_heure: debut.slice(11, 16),
+      commercial: lireCommercial(texte(champ(form, 'agenda_item[collaborator_id]').textContent)),
+      client: { telephones: String(champ(form, 'agenda_item[phone]').value || '').split(/[\n,;\/]+/).map(texte).filter(Boolean) }
+    };
+    var lieu = {
+      adresse: texte(champ(form, 'agenda_item[address_attributes][street]').value),
+      cp: texte(champ(form, 'agenda_item[address_attributes][zip_code]').value),
+      ville: texte(champ(form, 'agenda_item[address_attributes][city]').value),
+      complement: texte(champ(form, 'agenda_item[address_attributes][complement]').value)
+    };
+    var dossierId = dossierOpt.value;
+    var ancien = document.getElementById('gc-rdv'); if (ancien) ancien.remove();
+    if (!document.getElementById('gc-rdv-style')) { var st = document.createElement('style'); st.id = 'gc-rdv-style'; st.textContent = STYLE; document.head.appendChild(st); }
+    var f = document.createElement('div');
+    f.id = 'gc-rdv';
+    f.innerHTML = '<div class="f" role="dialog" aria-label="Confirmation de rendez-vous"><div class="t"><span>Confirmer le rendez-vous</span><button class="x" type="button" aria-label="Fermer">×</button></div><div class="c"><div class="msg">Lecture du client…</div></div></div>';
+    document.body.appendChild(f);
+    f.querySelector('.x').addEventListener('click', function () { f.remove(); });
+    var client = clientOpt.value ? page('/customers/' + clientOpt.value + '/edit').then(function (c) {
+      d.client.civilite = CIVILITES[valeur(c, 'customer[civility]')] || '';
+      d.client.nom = valeur(c, 'customer[profile_attributes][lastname]');
+      d.client.email = valeur(c, 'customer[profile_attributes][account_attributes][email]') || valeur(c, 'customer[other_email]');
+      [valeur(c, 'customer[phone]'), valeur(c, 'customer[other_phone]')].forEach(function (t) { if (t && d.client.telephones.indexOf(t) < 0) d.client.telephones.push(t); });
+    }).catch(function () { d.avertissements.push('fiche client illisible : nom et e-mail à saisir'); })
+      : Promise.resolve(d.avertissements.push('aucun client choisi dans l\'agenda : nom et e-mail à saisir'));
+    client.then(function () {
+      if (!d.client.nom) d.client.nom = texte(clientOpt.textContent).split(' ').filter(function (w) { return w.length > 1 && w === w.toUpperCase(); }).join(' ');
+      formulaire(f, dossierId, d, lieu, {
+        rdvFige: true,
+        envoiDirect: !APERCU_AGENDA,
+        avantEnvoi: function () { return enregistrerAgenda(dossierId, debut); }
+      });
+    });
+  }
+  // Enregistre par le bouton natif d'Ulyss, puis relit l'agenda de la semaine : le rendez-vous du dossier, à cette heure,
+  // modifié il y a moins de deux minutes. Sans relecture, pas de mail (Ulyss peut refuser sans le dire).
+  function enregistrerAgenda(dossierId, debut) {
+    var e = etatAgenda();
+    if (!e) return Promise.reject(new Error('La fenêtre de l\'agenda a été fermée : rendez-vous non enregistré, mail non envoyé.'));
+    var depart = Date.now();
+    e.natif.click();
+    var essais = 0;
+    return new Promise(function (ok, ko) {
+      var relire = function () {
+        essais++;
+        page('/agenda_items?date=' + debut.slice(0, 10)).then(function (doc) {
+          var cal = doc.querySelector('[data-controller~=calendar]'), evs = [];
+          try { evs = JSON.parse(cal.getAttribute('data-events') || '[]'); } catch (x) {}
+          var trouve = evs.filter(function (v) {
+            return String(v.contract_id) === String(dossierId) && String(v.agenda_type_id) === '1' && String(v.start_at || '').slice(0, 16) === debut.slice(0, 16)
+              && Date.parse(v.updated_at) >= depart - 120000;
+          })[0];
+          if (trouve) { ok(trouve); return; }
+          if (essais >= 8) { ko(new Error('Le rendez-vous n\'apparaît pas dans l\'agenda d\'Ulyss : vérifiez la fenêtre de l\'agenda (champ manquant ?). Mail non envoyé.')); return; }
+          setTimeout(relire, 1500);
+        }, function () { if (essais >= 8) ko(new Error('Agenda illisible : mail non envoyé.')); else setTimeout(relire, 1500); });
+      };
+      setTimeout(relire, 1200);
+    });
+  }
+
+  new MutationObserver(function () { poserBouton(); poserBoutonAgenda(); }).observe(document.documentElement, { childList: true, subtree: true });
   poserBouton();
+  poserBoutonAgenda();
 })();

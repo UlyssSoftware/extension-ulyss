@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Extension Ulyss",
-  "version": "1.6.1",
+  "version": "1.7.0",
   "description": "Outils Limo Dem dans Ulyss : chiffrage par la grille ou par forfait et moyens par étape dans la pré-planification, confirmation de rendez-vous par e-mail depuis la fiche dossier.",
   "permissions": [
     "storage",
