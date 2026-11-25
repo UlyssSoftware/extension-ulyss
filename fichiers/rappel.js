@@ -435,6 +435,8 @@
         const r = await appel(forcer ? { forcer: true } : {});
         if (r.ok) {
           afficher(`Rappel envoyé à ${r.destinataire}.` + (r.copie_envoyes ? ` Copie dans « ${r.copie_envoyes} ».` : ''), false, true);
+          bApercu.disabled = true;
+          setTimeout(fermer, 1800);   // la fenêtre se ferme seule une fois l'envoi confirmé (demande de Guillaume, 25/11)
           return;
         }
         afficher(r.erreur || 'Erreur.', true);
