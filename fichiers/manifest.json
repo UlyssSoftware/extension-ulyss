@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Extension Ulyss",
-  "version": "1.8.1",
+  "version": "1.8.2",
   "description": "Outils Limo Dem dans Ulyss : chiffrage par la grille ou par forfait et moyens par étape dans la pré-planification, confirmation de rendez-vous et rappel du déménagement par e-mail.",
   "permissions": [
     "storage",
@@ -29,6 +29,6 @@
   "host_permissions": [
     "https://raw.githubusercontent.com/UlyssSoftware/extension-ulyss/*",
     "https://cdn.jsdelivr.net/gh/UlyssSoftware/*",
-    "https://www.ulyss-software.com/confirmation-rdv/*"
+    "https://www.ulyss-software.com/extension-ulyss/*"
   ]
 }
