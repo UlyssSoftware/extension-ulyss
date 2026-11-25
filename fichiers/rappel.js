@@ -1,5 +1,5 @@
 /*
- * Extension Ulyss — bouton « Envoyer rappel déménagement » (onglet Pré-planification d'Ulyss).
+ * Extension Ulyss — bouton « Lettre de voiture » (ex-« Envoyer rappel déménagement » : génère la LV et envoie le rappel ; dossiers en Planning Ok seulement) (onglet Pré-planification d'Ulyss).
  * Repris le 25/11/2026 du cadrage fait dans un autre projet (bouton-rappel-demenagement.js), et intégré à l'extension :
  *   - l'appel passe par le service worker (message gc-rdv, cible « rappel ») : adresse et clé dans le fichier chiffré ;
  *   - bouton seulement sur ulyss.fr et le staging, pour les sociétés dont le modèle existe (Fraisseix) ;
@@ -13,7 +13,7 @@
   'use strict';
 
   const ID_BOUTON = 'limodem-bouton-rappel';
-  const LIBELLE = 'Envoyer rappel déménagement';
+  const LIBELLE = 'Lettre de voiture';   // renommé le 25/11/2026 (Guillaume) : LV + rappel au client
   const ROLES = ["Chef d'équipe", 'Déménageur', 'Conducteur'];
   const HOTES = /^(fraisseix\.staging\.unova\.fr|ulyss\.fr)$/;
   const CHEMIN = /^\/contracts\/(\d+)\/phases(?:\/(\d+))?/;
@@ -121,6 +121,13 @@
       if (m) return m[0];
     }
     return '';
+  }
+
+  /** État du dossier : badge de l'en-tête (« Planning Ok » = div.badge.contract-planned, relevé production 25/11/2026). */
+  function dossierPlanningOk() {
+    const bandeau = document.querySelector('#contract_header_banner');
+    if (!bandeau) return !!window.__extUlyssRdvEssai;   // page d'essai sans en-tête
+    return [...bandeau.querySelectorAll('.badge')].some((b) => /^planning ok$/i.test(b.textContent.trim()));
   }
 
   /** Client et dossier : numéro sur la page, client lu dans le formulaire de sa fiche (comme la confirmation de RDV). */
@@ -332,7 +339,7 @@
     const fNom = el('input', { value: client.nom });
     const fMail = el('input', { type: 'email', value: client.email });
     const fRef = el('input', { value: client.reference });
-    const fPhase = el('select', { onchange: () => { phase = phases[+fPhase.value]; jours = joursDePhase(phase); initMembres(); dessinerJours(); dessinerEquipe(); remplirDepuisPlanning(); lvExistantes = null; lvConfirmer = false; bLV.textContent = 'LETTRE DE VOITURE'; etatLV(); } },
+    const fPhase = el('select', { onchange: () => { phase = phases[+fPhase.value]; jours = joursDePhase(phase); initMembres(); dessinerJours(); dessinerEquipe(); remplirDepuisPlanning(); lvExistantes = null; lvConfirmer = false; bLV.textContent = 'GÉNÉRER LV'; etatLV(); } },
       phases.map((p, i) => el('option', { value: i }, p.libelle)));
     const relatif = () => jours.some((j) => !j.date || j.relatif);
     const fJour1 = el('input', { type: 'date', onchange: () => { appliquerJour1(); dessinerJours(); } });
@@ -440,7 +447,7 @@
     // --- Lettre de voiture : se génère pendant que l'équipe se charge ---
     const dossierLV = (location.pathname.match(CHEMIN) || [])[1];
     let lvExistantes = null, lvConfirmer = false;
-    const bLV = el('button', { class: 'btn sec', title: 'Même action que « Générer lettre de voiture » du menu de la phase', onclick: () => genererLV() }, 'LETTRE DE VOITURE');
+    const bLV = el('button', { class: 'btn sec', title: 'Même action que « Générer lettre de voiture » du menu de la phase', onclick: () => genererLV() }, 'GÉNÉRER LV');
     async function etatLV() {
       if (!formulaireLV(phase.id)) { bLV.style.display = 'none'; return; }
       try { lvExistantes = await lettresDeVoiture(dossierLV, phase.libelle, phases.length > 1); } catch (e) { lvExistantes = null; }
@@ -468,7 +475,7 @@
           return;
         }
       }
-      bLV.disabled = false; bLV.textContent = 'LETTRE DE VOITURE';
+      bLV.disabled = false; bLV.textContent = 'GÉNÉRER LV';
       afficher("Lettre de voiture : aucune nouvelle ligne dans l'onglet Documents après 30 s. Vérifier dans Ulyss avant de recommencer.", true);
     }
 
@@ -583,12 +590,13 @@
     if (!document.querySelector('[data-events]')) return; // pas sur l'onglet Pré-planification
     const reference = (numeroDossier().match(/^DGT[CD]([A-Z])/) || [])[1];
     if (SOCIETES.indexOf(reference) < 0) return;
+    if (!dossierPlanningOk()) return;
     const affichage = [...document.querySelectorAll('a.btn, button')].find((b) => b.textContent.trim().toLowerCase() === 'affichage');
     const bouton = document.createElement('button');
     bouton.id = ID_BOUTON;
     bouton.type = 'button';
     bouton.textContent = LIBELLE;
-    bouton.title = 'Envoyer au client le rappel de son déménagement (Extension Ulyss)';
+    bouton.title = 'Générer la lettre de voiture et envoyer le rappel du déménagement au client (Extension Ulyss)';
     if (affichage) {
       bouton.className = affichage.className;
       bouton.style.marginLeft = '8px';
