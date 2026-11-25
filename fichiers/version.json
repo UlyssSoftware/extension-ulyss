@@ -1,5 +1,5 @@
 {
- "version": "1.8.1",
+ "version": "1.8.2",
  "date": "2026-11-25",
  "fichiers": [
   "LISEZMOI.txt",
@@ -15,11 +15,11 @@
   "LISEZMOI.txt": "0648aecbaf0c17101d9c188c32da37ac72395849172b8c75de17fc5aac3c58ce",
   "content.js": "f6d5142a6b5f8f6ddc81dbc26225fe282b8c7d49320a0d101ab85faf58ab6fc3",
   "engine.js": "9148cdd217de6df651c87274ea79116110bdff7a6db3d097127c41c498139385",
-  "fond.js": "96b979f2bf4fed43fb4bd7c62e4dd553c67a109ac09f74d4b3500c524ef88eec",
-  "manifest.json": "414a153b1d32451b5ff45bebe362317412b5d50d21848a152613e607201269cc",
+  "fond.js": "75dd05d8a62e6b80c988961110ea00ad4e089b958257268acb84f8f1f02b3e79",
+  "manifest.json": "dc0c48b0c1e0121b769b622f5d03c93cf5a326851d93c9e202ba309b27880c57",
   "rappel.js": "3b5a4895e56153ab5820f098810e4f6c8310d6b2f10c2921d66a2a786d71382f",
   "rdv.js": "c0aa049cb45fbddf4e20cea2fafe696f4d3dd8fa4f011a64ff397c76320cdf0b",
-  "tarifs.json": "cd330cd799857d9afbe404c18c38d398beba03b46852c0413e7a21c487da54dd"
+  "tarifs.json": "b6b7ea32fce280a135193881721788be0c1ca9a468eed941af63240f88f91dc3"
  },
- "reference": "45505558e82344b2db4f6327e7534ec961382a7e"
+ "reference": "d4458d278ef66ff2af4eb9d7503cebebe5eab755"
 }
