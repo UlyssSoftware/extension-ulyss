@@ -10,6 +10,7 @@
   var EN_PRODUCTION = false;
   var HOTES = EN_PRODUCTION ? /^(fraisseix\.staging\.unova\.fr|ulyss\.fr)$/ : /^fraisseix\.staging\.unova\.fr$/;
   var CHEMIN = /^\/contracts\/(\d+)\/?$/;
+  var SOCIETES = ['F'];   // lettre après C ou D dans le numéro : F Fraisseix (B Bardon, L LDL quand leur modèle existera)
   var STAGING = location.hostname === 'fraisseix.staging.unova.fr';
   var MOIS = ['janvier', 'février', 'mars', 'avril', 'mai', 'juin', 'juillet', 'août', 'septembre', 'octobre', 'novembre', 'décembre'];
   var CIVILITES = { male: 'Monsieur', female: 'Madame', both: 'Monsieur et Madame', other: '' };
@@ -85,7 +86,8 @@
     if (!rdv || !rdv.parentElement) return;
     var ref = reference(document);
     if (!ref) return;
-    if (!/^DGT[A-Z]F/.test(ref)) { vu = location.pathname; return; }   // Fraisseix seulement (5e caractère du numéro)
+    var lettre = (ref.match(/^DGT[CD]([A-Z])/) || [])[1];
+    if (SOCIETES.indexOf(lettre) < 0) { vu = location.pathname; return; }   // sociétés dont le modèle de mail existe
     var b = document.createElement('a');
     b.id = 'gc-rdv-bouton';
     b.href = '#';
@@ -111,7 +113,9 @@
       d.client = {
         civilite: CIVILITES[valeur(c, 'customer[civility]')] || '',
         nom: valeur(c, 'customer[profile_attributes][lastname]'),
-        email: valeur(c, 'customer[profile_attributes][account_attributes][email]') || valeur(c, 'customer[other_email]')
+        email: valeur(c, 'customer[profile_attributes][account_attributes][email]') || valeur(c, 'customer[other_email]'),
+        // Téléphones : jamais dans le mail ; transmis au script pour préparer l'espace client du dossier.
+        telephones: [valeur(c, 'customer[phone]'), valeur(c, 'customer[other_phone]')].filter(Boolean)
       };
     }).catch(function () { d.avertissements = (d.avertissements || []).concat('fiche client illisible : nom et e-mail à saisir'); })
       : Promise.resolve(d.avertissements = ['client professionnel ou introuvable : nom et e-mail à saisir']);
@@ -219,7 +223,7 @@
       }, function (e) { dire('Lieu illisible : ' + (e && e.message || e), 'ko'); });
     });
     var donnees = function () {
-      var o = { dossier_reference: d.reference };
+      var o = { dossier_reference: d.reference, telephones: d.client.telephones || [] };
       CHAMPS.forEach(function (c) { var e = corps.querySelector('[name=' + c[0] + ']'); o[c[0]] = texte(e && e.value); });
       o.client_nom = o.client_nom.toUpperCase();
       o.commercial_nom = o.commercial_nom.toUpperCase();
@@ -294,7 +298,8 @@
           appeler(o, function (k) {
             boutons.innerHTML = '';
             bouton('Fermer', 'p', function () { f.remove(); });
-            dire('Confirmation envoyée à ' + (k.destinataire || o.client_email) + (k.copie_envoyes ? ' — copie rangée dans « ' + k.copie_envoyes + ' » de la boîte contact.' : ' — attention : pas de copie dans les « Envoyés » de la boîte contact.'), 'ok');
+            var esp = k.espace && k.espace.raison !== 'désactivé' ? (k.espace.fait ? ' Espace client préparé.' : ' Espace client non préparé (' + k.espace.raison + ').') : '';
+            dire('Confirmation envoyée à ' + (k.destinataire || o.client_email) + (k.copie_envoyes ? ' — copie rangée dans « ' + k.copie_envoyes + ' ».' : ' — pas de copie dans les « Envoyés ».') + esp, 'ok');
           });
         });
       });
