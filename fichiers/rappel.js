@@ -110,11 +110,24 @@
     return Math.max(0, ...phase.evenements.map((ev) => parseInt(ev.nbEmp, 10) || 0));
   }
 
+  /**
+   * Numéro du dossier affiché : en-tête #contract_header_banner (h2#subtitle). Le corps de la page peut contenir avant lui
+   * le numéro d'un dossier lié (constaté en production le 25/11/2026 : DGTDL… avant DGTDF2611-087) : ne pas le prendre.
+   */
+  function numeroDossier() {
+    const zones = [document.querySelector('#contract_header_banner #subtitle'), document.querySelector('#contract_header_banner'), document.querySelector('h2#subtitle'), document.querySelector('main') || document.body];
+    for (const z of zones) {
+      const m = z && z.textContent.match(/DGT[CD][A-Z]\d{4}-\d{3}(?:_\d+)?/);
+      if (m) return m[0];
+    }
+    return '';
+  }
+
   /** Client et dossier : numéro sur la page, client lu dans le formulaire de sa fiche (comme la confirmation de RDV). */
   async function lireClient() {
-    const reference = (document.body.innerText.match(/DGT[CD][A-Z]\d{4}-\d{3}(?:_\d+)?/) || [])[0] || '';
+    const reference = numeroDossier();
     const r = { nom: '', email: '', civilite: '', reference, societe: (reference.match(/^DGT[CD]([A-Z])/) || [])[1] || '' };
-    const lien = [...document.querySelectorAll('a[href]')].map((a) => a.getAttribute('href')).find((h) => /^\/customers\/\d+(\/|$)/.test(h));
+    const lien = [...document.querySelectorAll('#contract_header_banner a[href]'), ...document.querySelectorAll('a[href]')].map((a) => a.getAttribute('href')).find((h) => /^\/customers\/\d+(\/|$)/.test(h));
     if (!lien) return r;
     try {
       const html = await fetch('/customers/' + lien.match(/\d+/)[0] + '/edit', { credentials: 'same-origin' }).then((x) => x.text());
@@ -507,7 +520,7 @@
     if (!CHEMIN.test(location.pathname)) return;
     if (document.getElementById(ID_BOUTON)) return;
     if (!document.querySelector('[data-events]')) return; // pas sur l'onglet Pré-planification
-    const reference = (document.body.innerText.match(/DGT[CD]([A-Z])\d{4}-\d{3}/) || [])[1];
+    const reference = (numeroDossier().match(/^DGT[CD]([A-Z])/) || [])[1];
     if (SOCIETES.indexOf(reference) < 0) return;
     const affichage = [...document.querySelectorAll('a.btn, button')].find((b) => b.textContent.trim().toLowerCase() === 'affichage');
     const bouton = document.createElement('button');

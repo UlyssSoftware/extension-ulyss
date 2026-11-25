@@ -51,7 +51,12 @@
     var v = texte(t.parentElement.textContent.replace(t.textContent, ''));
     return v === '-' ? '' : v;
   }
-  function reference(doc) { var m = texte((doc.querySelector('main') || doc.body).textContent).match(/DGT[A-Z]{2}\d{4}-\d{3}(?:_\d+)?/); return m ? m[0] : ''; }
+  // Numéro lu d'abord dans l'en-tête du dossier : le corps peut citer avant lui un dossier lié (constaté en production le 25/11/2026).
+  function reference(doc) {
+    var zones = [doc.querySelector('#contract_header_banner #subtitle'), doc.querySelector('#contract_header_banner'), doc.querySelector('h2#subtitle'), doc.querySelector('main') || doc.body];
+    for (var i = 0; i < zones.length; i++) { var m = zones[i] && texte(zones[i].textContent).match(/DGT[A-Z]{2}\d{4}-\d{3}(?:_\d+)?/); if (m) return m[0]; }
+    return '';
+  }
   // « Mardi 25 août 2026 à 09h00 » → { date: '2026-08-25', heure: '09:00' }
   function lireDateRdv(s) {
     var m = sansAccents(s).toLowerCase().match(/(\d{1,2})\s+([a-z]+)\s+(\d{4})(?:\D+(\d{1,2})\s*h\s*(\d{2})?)?/);
