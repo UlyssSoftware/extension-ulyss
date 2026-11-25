@@ -223,6 +223,29 @@
   }
 
   // ---------------------------------------------------------------------------
+  // Lettre de voiture (relevé production 25/11/2026, lecture seule ; voir claude/ulyss-lettre-de-voiture.md)
+  //  - bouton natif du menu ⋮ de la phase : form[action$="/phases/<phase>/generate_mission_note"] (button_to, Turbo) ;
+  //  - contrôle : onglet /contracts/<id>/documents, ligne « Lettre de voiture - <titre de phase> » avec un lien active_storage.
+  // On SOUMET le formulaire natif dans la page (pas de fetch) : Ulyss traite la réponse Turbo comme pour un clic.
+  // ---------------------------------------------------------------------------
+  const sansAcc = (t) => String(t || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/\s+/g, ' ').trim();
+  function formulaireLV(phaseId) {
+    const f = [...document.querySelectorAll('form[action*="/generate_mission_note"]')];
+    if (phaseId) { const g = f.find((x) => new RegExp(`/phases/${phaseId}/generate_mission_note`).test(x.getAttribute('action') || '')); if (g) return g; }
+    return f.length === 1 ? f[0] : null;
+  }
+  /** LV présentes dans l'onglet Documents : [{date, titre}] ; titrePhase filtre si plusieurs phases. */
+  async function lettresDeVoiture(dossierId, titrePhase, plusieursPhases) {
+    const html = await fetch(`/contracts/${dossierId}/documents`, { credentials: 'same-origin', cache: 'no-store' }).then((r) => r.text());
+    const doc = new DOMParser().parseFromString(html, 'text/html');
+    const t = sansAcc(titrePhase).slice(0, 18);
+    return [...doc.querySelectorAll('tbody tr')]
+      .filter((tr) => /lettre de voiture/i.test(tr.textContent) && tr.querySelector('a[href*="active_storage"]'))
+      .map((tr) => ({ date: (tr.textContent.match(/\d{2}\/\d{2}\/\d{4}/) || [''])[0], titre: ([...tr.cells].map((c) => c.textContent.trim()).find((x) => /^Lettre de voiture/i.test(x)) || '') }))
+      .filter((l) => !plusieursPhases || !t || sansAcc(l.titre).includes(t));
+  }
+
+  // ---------------------------------------------------------------------------
   // Dates
   // ---------------------------------------------------------------------------
   /** Ulyss saute les week-ends pour un déménagement sur plusieurs jours. */
@@ -309,7 +332,7 @@
     const fNom = el('input', { value: client.nom });
     const fMail = el('input', { type: 'email', value: client.email });
     const fRef = el('input', { value: client.reference });
-    const fPhase = el('select', { onchange: () => { phase = phases[+fPhase.value]; jours = joursDePhase(phase); initMembres(); dessinerJours(); dessinerEquipe(); remplirDepuisPlanning(); } },
+    const fPhase = el('select', { onchange: () => { phase = phases[+fPhase.value]; jours = joursDePhase(phase); initMembres(); dessinerJours(); dessinerEquipe(); remplirDepuisPlanning(); lvExistantes = null; lvConfirmer = false; bLV.textContent = 'LETTRE DE VOITURE'; etatLV(); } },
       phases.map((p, i) => el('option', { value: i }, p.libelle)));
     const relatif = () => jours.some((j) => !j.date || j.relatif);
     const fJour1 = el('input', { type: 'date', onchange: () => { appliquerJour1(); dessinerJours(); } });
@@ -414,6 +437,41 @@
       return { code: r.statut, ...j };
     }
 
+    // --- Lettre de voiture : se génère pendant que l'équipe se charge ---
+    const dossierLV = (location.pathname.match(CHEMIN) || [])[1];
+    let lvExistantes = null, lvConfirmer = false;
+    const bLV = el('button', { class: 'btn sec', title: 'Même action que « Générer lettre de voiture » du menu de la phase', onclick: () => genererLV() }, 'LETTRE DE VOITURE');
+    async function etatLV() {
+      if (!formulaireLV(phase.id)) { bLV.style.display = 'none'; return; }
+      try { lvExistantes = await lettresDeVoiture(dossierLV, phase.libelle, phases.length > 1); } catch (e) { lvExistantes = null; }
+      if (lvExistantes && lvExistantes.length) { bLV.textContent = 'LV ✓ ' + lvExistantes[lvExistantes.length - 1].date; bLV.title = `Lettre de voiture déjà générée (${lvExistantes.map((l) => l.date).join(', ')}). Cliquer pour en générer une nouvelle.`; }
+    }
+    async function genererLV() {
+      const f = formulaireLV(phase.id);
+      if (!f) { afficher('Bouton « Générer lettre de voiture » introuvable sur cette page.', true); return; }
+      if (lvExistantes && lvExistantes.length && !lvConfirmer) {
+        lvConfirmer = true; bLV.textContent = 'EN REGÉNÉRER UNE ?';
+        afficher(`Une lettre de voiture existe déjà (${lvExistantes[lvExistantes.length - 1].date}). Cliquer de nouveau pour en générer une nouvelle.`);
+        return;
+      }
+      lvConfirmer = false; bLV.disabled = true; bLV.textContent = 'LV EN COURS…';
+      const avant = (await lettresDeVoiture(dossierLV, phase.libelle, phases.length > 1).catch(() => [])).length;
+      if (f.requestSubmit) f.requestSubmit(); else f.submit();
+      // relecture de l'onglet Documents : une ligne de plus = générée
+      for (let i = 0; i < 15; i++) {
+        await new Promise((ok) => setTimeout(ok, 2000));
+        const apres = await lettresDeVoiture(dossierLV, phase.libelle, phases.length > 1).catch(() => null);
+        if (apres && apres.length > avant) {
+          lvExistantes = apres; bLV.disabled = false;
+          bLV.textContent = 'LV ✓ ' + apres[apres.length - 1].date;
+          if (!msg.classList.contains('err')) afficher('Lettre de voiture générée (onglet Documents).', false, true);
+          return;
+        }
+      }
+      bLV.disabled = false; bLV.textContent = 'LETTRE DE VOITURE';
+      afficher("Lettre de voiture : aucune nouvelle ligne dans l'onglet Documents après 30 s. Vérifier dans Ulyss avant de recommencer.", true);
+    }
+
     const bApercu = el('button', { class: 'btn sec', onclick: async () => {
       const pb = controle(); if (pb) { afficher(pb, true); return; }
       bApercu.disabled = true; afficher('Préparation de l\'aperçu…');
@@ -471,12 +529,13 @@
           noteEquipe,
           zoneEquipe),
         el('div', { class: 'col' }, el('h4', {}, 'Aperçu'), cadre)),
-      el('div', { class: 'pied' }, msg, bForcer, bApercu, bEnvoyer));
+      el('div', { class: 'pied' }, msg, bForcer, bLV, bApercu, bEnvoyer));
 
     racine.append(el('div', { class: 'voile', onclick: (e) => { if (e.target === e.currentTarget) fermer(); } }, fenetre));
     dessinerJours();
     dessinerEquipe();
     remplirDepuisPlanning();
+    etatLV();
 
     /** Équipe reprise du Planning (jour 1), sans écraser ce qui a déjà été saisi à la main. */
     async function remplirDepuisPlanning() {
