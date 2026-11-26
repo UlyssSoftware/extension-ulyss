@@ -21,11 +21,12 @@
   const SEMAINES = 8, SEMAINES_EN_PLUS = 4;
   // Seuils sur les déménageurs libres la journée (réglables) : en dessous de 0 violet, puis vert, jaune, orange, rouge.
   const SEUILS = [
-    { max: -1, nom: 'Il manque du monde', fond: '#7c3aed', texte: '#fff' },
-    { max: 2, nom: 'Plein ou presque', fond: '#16a34a', texte: '#fff' },
-    { max: 5, nom: 'Bien chargé', fond: '#facc15', texte: '#3b2f00' },
-    { max: 9, nom: 'Moyennement chargé', fond: '#f97316', texte: '#fff' },
-    { max: Infinity, nom: 'Peu chargé', fond: '#dc2626', texte: '#fff' },
+    // Rendu adouci le 26/11/2026 (« trop flashy ») : fond pastel, chiffre dans la teinte foncée, liseré de couleur.
+    { max: -1, nom: 'Il manque du monde', fond: '#f3e8ff', texte: '#6b21a8', trait: '#9333ea' },
+    { max: 2, nom: 'Plein ou presque', fond: '#e3f6ea', texte: '#166534', trait: '#22a35a' },
+    { max: 5, nom: 'Bien chargé', fond: '#fdf6d3', texte: '#7a5a05', trait: '#e2b100' },
+    { max: 9, nom: 'Moyennement chargé', fond: '#ffeede', texte: '#9a4a12', trait: '#f08a3c' },
+    { max: Infinity, nom: 'Peu chargé', fond: '#fdecec', texte: '#a12a2a', trait: '#e25c5c' },
   ];
   const seuil = (n) => SEUILS.find((s) => n <= s.max);
   // Relecture de sécurité (changements faits hors extension : absences, postes sans extension)
@@ -93,26 +94,31 @@
   // ---------------------------------------------------------------------------
   const CSS = `
     :host{all:initial}
-    .voile{position:fixed;inset:0;background:rgba(14,22,38,.45);z-index:2147483000;display:flex;align-items:flex-start;justify-content:center;overflow:auto;padding:40px 12px;font-family:Arial,Helvetica,sans-serif}
-    .fen{background:#fff;width:min(760px,100%);border-radius:14px;box-shadow:0 18px 50px rgba(0,0,0,.3);color:#1f2a44;font-size:13px;overflow:hidden}
-    .tete{display:flex;justify-content:space-between;align-items:center;padding:14px 18px;border-bottom:1px solid #e3e8f0}
-    .tete b{font-size:16px} .x{background:none;border:0;font-size:20px;cursor:pointer;color:#64748b}
-    .corps{padding:14px 18px;max-height:70vh;overflow:auto}
-    .grille{display:grid;grid-template-columns:86px repeat(5,1fr);gap:6px;align-items:stretch}
-    .ent{font-size:11px;color:#64748b;text-align:center;text-transform:uppercase;letter-spacing:1px;padding-bottom:2px}
-    .sem{font-size:11px;color:#64748b;display:flex;align-items:center}
-    .case{border-radius:10px;padding:6px 8px;min-height:58px;display:flex;flex-direction:column;justify-content:space-between;background:#eef2f7;color:#94a3b8}
-    .case .d{font-size:11px;opacity:.9} .case .n{font-size:22px;font-weight:bold;line-height:1;text-align:center}
-    .case .s{font-size:10px;text-align:center;opacity:.95;min-height:12px}
-    .case.passe{background:#f8fafc;color:#cbd5e1} .case.auj{outline:2px solid #1f2a44;outline-offset:1px}
-    .case.attente .n{font-size:13px;font-weight:normal}
-    .leg{display:flex;flex-wrap:wrap;gap:6px 12px;margin-top:12px;font-size:11px;color:#475569}
-    .leg i{display:inline-block;width:11px;height:11px;border-radius:3px;margin-right:4px;vertical-align:-1px}
-    .pied{display:flex;gap:10px;align-items:center;padding:10px 18px;border-top:1px solid #e3e8f0}
-    .msg{flex:1;font-size:12px;color:#475569} .err{color:#b91c1c}
-    .btn{border:1px solid #cbd5e1;background:#fff;border-radius:8px;padding:7px 12px;cursor:pointer;font-size:12px;color:#1f2a44}
+    .voile{position:fixed;inset:0;background:rgba(15,23,42,.38);backdrop-filter:blur(2px);z-index:2147483000;display:flex;align-items:flex-start;justify-content:center;overflow:auto;padding:40px 12px;font-family:Inter,'Segoe UI',system-ui,-apple-system,Arial,sans-serif}
+    .fen{background:#fff;width:min(720px,100%);border-radius:18px;box-shadow:0 24px 60px rgba(15,23,42,.22);color:#1f2a44;font-size:13px;overflow:hidden}
+    .tete{display:flex;justify-content:space-between;align-items:center;padding:18px 22px 6px}
+    .tete b{font-size:17px;font-weight:600;letter-spacing:-.2px} .tete small{display:block;font-size:12px;color:#64748b;font-weight:400;margin-top:2px}
+    .x{background:none;border:0;font-size:18px;cursor:pointer;color:#94a3b8;border-radius:8px;width:32px;height:32px} .x:hover{background:#f1f5f9;color:#475569}
+    .corps{padding:12px 22px 16px;max-height:70vh;overflow:auto}
+    .grille{display:grid;grid-template-columns:64px repeat(5,1fr);gap:8px;align-items:stretch}
+    .ent{font-size:11px;color:#94a3b8;text-align:center;font-weight:600;letter-spacing:.6px;text-transform:uppercase;padding-bottom:2px}
+    .sem{font-size:11px;color:#94a3b8;display:flex;align-items:center;font-variant-numeric:tabular-nums}
+    .case{border-radius:12px;padding:8px 10px 7px 12px;min-height:60px;display:flex;flex-direction:column;justify-content:space-between;background:#f6f8fb;color:#94a3b8;transition:transform .12s,box-shadow .12s}
+    .case .d{font-size:11px;font-weight:500;opacity:.75}
+    .case .n{font-size:22px;font-weight:650;line-height:1.05;letter-spacing:-.5px;font-variant-numeric:tabular-nums}
+    .case .s{font-size:10.5px;opacity:.8;min-height:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .case.passe{background:transparent;color:#cbd5e1} .case.passe .d{opacity:.6}
+    .case.auj{outline:2px solid #1f2a44;outline-offset:2px}
+    .case.attente .n{font-size:13px;font-weight:400}
+    .leg{display:flex;flex-wrap:wrap;gap:8px 16px;margin-top:16px;padding-top:12px;border-top:1px solid #eef2f7;font-size:11.5px;color:#64748b}
+    .leg i{display:inline-block;width:14px;height:12px;border-radius:4px;margin-right:6px;vertical-align:-2px}
+    .leg .note{flex-basis:100%;color:#94a3b8}
+    .pied{display:flex;gap:10px;align-items:center;padding:12px 22px;border-top:1px solid #eef2f7;background:#fbfcfe}
+    .msg{flex:1;font-size:12px;color:#64748b} .err{color:#b91c1c}
+    .btn{border:1px solid #dbe2ec;background:#fff;border-radius:10px;padding:8px 14px;cursor:pointer;font-size:12.5px;color:#1f2a44;font-family:inherit} .btn:hover{border-color:#b8c4d6}
     .btn:disabled{opacity:.5;cursor:default}
   `;
+
   function el(tag, attrs = {}, ...enfants) {
     const n = document.createElement(tag);
     for (const [k, v] of Object.entries(attrs)) {
@@ -166,7 +172,7 @@
           const k = el('div', { class: 'case' + (d === auj ? ' auj' : '') }, el('div', { class: 'd' }, court(d)));
           if (c) {
             const sl = seuil(c.j);
-            k.style.background = sl.fond; k.style.color = sl.texte;
+            k.style.background = sl.fond; k.style.color = sl.texte; k.style.boxShadow = 'inset 3px 0 0 ' + sl.trait;
             const demi = [c.m ? `matin ${c.m > 0 ? '+' : ''}${c.m}` : '', c.a ? `ap.-midi ${c.a > 0 ? '+' : ''}${c.a}` : ''].filter(Boolean).join(' · ');
             k.title = `${sl.nom} — ${c.j} déménageur(s) libre(s) la journée` + (demi ? ` ; en plus : ${demi}` : '') + (c.lu ? ` — lu à ${new Date(c.lu * 1000).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}` : '');
             k.append(el('div', { class: 'n' }, String(c.j)), el('div', { class: 's' }, (enAttente.has(d) ? '↻ ' : '') + demi));
@@ -205,7 +211,7 @@
             serveur({ action: 'ecrire', jours: envoi }, true).catch(() => { partage = false; });
           }
         }
-        if (vivant) { dessiner(); dire(partage ? 'À jour.' : 'À jour sur ce poste (partage entre postes indisponible).'); }
+        if (vivant) { dessiner(); dire(partage ? 'À jour.' : 'À jour sur ce poste — partage entre postes pas encore en service.'); }
       } catch (e) {
         if (vivant) { dessiner(); dire('Lecture interrompue : ' + e.message, true); }
       } finally {
@@ -215,10 +221,10 @@
 
     racine.append(el('style', {}, CSS), el('div', { class: 'voile', onclick: (e) => { if (e.target === e.currentTarget) fermer(); } },
       el('div', { class: 'fen' },
-        el('div', { class: 'tete' }, el('b', {}, 'Taux de charge — déménageurs libres par jour'), el('button', { class: 'x', title: 'Fermer', onclick: fermer }, '✕')),
+        el('div', { class: 'tete' }, el('b', {}, 'Taux de charge', el('small', {}, 'Déménageurs encore libres par jour, tout le groupe')), el('button', { class: 'x', title: 'Fermer', onclick: fermer }, '✕')),
         el('div', { class: 'corps' }, grille,
-          el('div', { class: 'leg' }, SEUILS.slice().reverse().map((s) => el('span', {}, el('i', { style: 'background:' + s.fond }), s.nom)),
-            el('span', {}, 'Chiffre = déménageurs encore libres la journée, tout le groupe. Dessous : libres en plus sur une demi-journée.'))),
+          el('div', { class: 'leg' }, SEUILS.slice().reverse().map((s) => el('span', {}, el('i', { style: 'background:' + s.fond + ';box-shadow:inset 3px 0 0 ' + s.trait }), s.nom)),
+            el('span', { class: 'note' }, 'Le chiffre : libres la journée entière. Dessous : libres en plus sur une demi-journée.'))),
         el('div', { class: 'pied' }, msg, bPlus, bActu))));
     dessiner();
     dire('Chargement…');
