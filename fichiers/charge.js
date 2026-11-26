@@ -107,7 +107,7 @@
     const gens = [...doc.querySelectorAll('[data-type="collaborator"][data-id]')];
     if (!gens.length) return null;   // panneau absent : on ne conclut pas « zéro intérimaire »
     const interim = gens.filter((g) => FOND_INTERIM.test(g.getAttribute('style') || ''));
-    return { compteurs: compteurs(doc)[date] || null, i: interim.length, ip: interim.filter((g) => g.querySelector('.border-card-grey')).length };
+    return { compteurs: compteurs(doc)[date] || null, i: interim.length, ip: 0 };
   }
 
   // ---------------------------------------------------------------------------
@@ -142,6 +142,10 @@
     .msg{flex:1;font-size:12px;color:#64748b} .err{color:#b91c1c}
     .btn{border:1px solid #dbe2ec;background:#fff;border-radius:10px;padding:8px 14px;cursor:pointer;font-size:12.5px;color:#1f2a44;font-family:inherit} .btn:hover{border-color:#b8c4d6}
     .btn:disabled{opacity:.5;cursor:default}
+    .bulle{position:fixed;display:none;z-index:2147483001;pointer-events:none;align-items:center;gap:14px;padding:12px 18px 12px 16px;border-radius:16px;background:linear-gradient(135deg,#1f2a44,#2d7d8a);color:#fff;box-shadow:0 14px 34px rgba(15,23,42,.35);font-family:Inter,'Segoe UI',system-ui,-apple-system,Arial,sans-serif}
+    .bulle .bn{font-size:44px;font-weight:700;line-height:1;letter-spacing:-1.5px;font-variant-numeric:tabular-nums;color:#f3d98b;min-width:34px;text-align:center}
+    .bulle .bn.att{font-size:30px;opacity:.7}
+    .bulle .bt{display:flex;flex-direction:column;gap:2px} .bulle .bt b{font-size:15px;font-weight:600} .bulle .bt span{font-size:11.5px;opacity:.8;white-space:nowrap}
   `;
 
   function el(tag, attrs = {}, ...enfants) {
@@ -172,6 +176,7 @@
     let connus = {}, heureServeur = Math.floor(Date.now() / 1000), partage = true;
     const vides = new Set();        // jours qu'Ulyss n'affiche pas (non retentés dans cette fenêtre)
     const grille = el('div', { class: 'grille' });
+    const bulle = el('div', { class: 'bulle' });
     const msg = el('div', { class: 'msg' });
     const bPlus = el('button', { class: 'btn', onclick: () => { semaines += SEMAINES_EN_PLUS; dessiner(); mettreAJour(false); } }, `+ ${SEMAINES_EN_PLUS} semaines`);
     const bActu = el('button', { class: 'btn', title: 'Relire maintenant dans Ulyss tous les jours affichés', onclick: () => mettreAJour(true) }, 'Actualiser');
@@ -196,25 +201,16 @@
         for (let i = 0; i < 5; i++) {
           const d = plus(l, i), c = connus[d];
           if (d < auj) { grille.append(el('div', { class: 'case passe' }, el('div', { class: 'd' }, court(d)))); continue; }
-          const k = el('div', { class: 'case' + (d === auj ? ' auj' : '') }, el('div', { class: 'd' }, el('span', {}, court(d))));
+          const k = el('div', { class: 'case' + (d === auj ? ' auj' : ''), 'data-d': d, onmouseenter: () => survoler(d, k), onmouseleave: () => quitter(d) }, el('div', { class: 'd' }, el('span', {}, court(d))));
           if (c) {
             const sl = seuil(c.j);
             k.style.background = sl.fond; k.style.color = sl.texte; k.style.boxShadow = 'inset 3px 0 0 ' + sl.trait;
             const demi = [c.m ? `matin ${c.m > 0 ? '+' : ''}${c.m}` : '', c.a ? `ap.-midi ${c.a > 0 ? '+' : ''}${c.a}` : ''].filter(Boolean).join(' · ');
-            k.title = `${sl.nom} — ${c.j} déménageur(s) libre(s) la journée` + (demi ? ` ; en plus : ${demi}` : '') + (c.lu ? ` — lu à ${new Date(c.lu * 1000).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}` : '');
             k.append(el('div', { class: 'n' }, String(c.j)), el('div', { class: 's' }, (enAttente.has(d) ? '↻ ' : '') + demi));
-            if (typeof c.i === 'number') {
-              k.title += `\nIntérimaires au planning : ${c.i}` + (c.i ? ` (${c.i - (c.ip || 0)} libre${c.i - (c.ip || 0) > 1 ? 's' : ''}, ${c.ip || 0} déjà pris)` : '');
-            } else {
-              k.title += '\nIntérimaires : cliquer sur la case pour les lire.';
-              k.style.cursor = 'pointer';
-              k.addEventListener('click', () => lireInterimaires([d]));
-            }
             const desequilibre = [c.m >= ALERTE_DEMI ? `${c.m} libres le matin` : '', c.a >= ALERTE_DEMI ? `${c.a} libres l'après-midi` : ''].filter(Boolean);
             if (desequilibre.length) {
               const al = el('span', { class: 'alerte' }); al.innerHTML = PANNEAU;
               k.firstChild.append(al);
-              k.title = `⚠ Charge à équilibrer : ${desequilibre.join(' et ')}.\n` + k.title;
             }
           } else {
             k.classList.add('attente');
@@ -223,6 +219,7 @@
           grille.append(k);
         }
       }
+      rafraichirBulle();
     }
 
     // Secours local : un serveur pas encore mis à jour ne garde pas i / ip ; sans cela chaque ouverture relirait tout.
@@ -265,6 +262,33 @@
         const c = connus[d];
         return !vides.has(d) && (!c || typeof c.i !== 'number' || tout || heureServeur - (c.ilu || 0) > INTERIM_DELAI);
       });
+    }
+
+    // Survol d'une case (demande du 26/11/2026, 14 h 23) : une seule information, en grand — le nombre d'intérimaires
+    // qui composent les effectifs du jour (pris ou non, peu importe). Aucune autre donnée au survol.
+    let survol = '', minuterie = 0;
+    function montrerBulle(d, k) {
+      const c = connus[d], connu = c && typeof c.i === 'number';
+      bulle.replaceChildren(
+        el('div', { class: 'bn' + (connu ? '' : ' att') }, connu ? String(c.i) : '…'),
+        el('div', { class: 'bt' }, el('b', {}, connu && c.i <= 1 ? 'intérimaire' : 'intérimaires'), el('span', {}, connu ? 'dans les effectifs du ' + court(d) : 'lecture dans Ulyss…')));
+      const r = k.getBoundingClientRect();
+      bulle.style.display = 'flex';
+      const l = bulle.offsetWidth, h = bulle.offsetHeight, haut = r.top - h - 10;
+      bulle.style.left = Math.round(Math.max(8, Math.min(window.innerWidth - l - 8, r.left + r.width / 2 - l / 2))) + 'px';
+      bulle.style.top = Math.round(haut > 8 ? haut : r.bottom + 10) + 'px';
+    }
+    function survoler(d, k) {
+      survol = d; montrerBulle(d, k);
+      clearTimeout(minuterie);
+      const c = connus[d];
+      // Jour lointain pas encore lu : on le lit si la souris s'y arrête (une page d'Ulyss, ~5 s).
+      if (c && typeof c.i !== 'number') minuterie = setTimeout(() => { if (survol === d && !enLecture) lireInterimaires([d]); }, 350);
+    }
+    function quitter(d) { if (survol === d) { survol = ''; bulle.style.display = 'none'; clearTimeout(minuterie); } }
+    function rafraichirBulle() {
+      const k = survol ? grille.querySelector(`[data-d="${survol}"]`) : null;
+      if (k && k.matches(':hover')) montrerBulle(survol, k); else { survol = ''; bulle.style.display = 'none'; }
     }
 
     /** Relit dans Ulyss, page par page et jamais en parallèle, les seuls jours périmés. */
@@ -311,8 +335,8 @@
         el('div', { class: 'corps' }, grille,
           el('div', { class: 'leg' }, SEUILS.slice().reverse().map((s) => el('span', {}, el('i', { style: 'background:' + s.fond + ';box-shadow:inset 3px 0 0 ' + s.trait }), s.nom)),
             (() => { const a = el('span', {}); a.innerHTML = '<span class="alerte">' + PANNEAU + '</span>' + ALERTE_DEMI + ' libres ou plus sur une demi-journée : charge à équilibrer'; return a; })(),
-            el('span', { class: 'note' }, 'Le chiffre : libres la journée entière. Dessous : libres en plus sur une demi-journée.'))),
-        el('div', { class: 'pied' }, msg, bPlus, bActu))));
+            el('span', { class: 'note' }, 'Le chiffre : libres la journée entière. Dessous : libres en plus sur une demi-journée. Au survol : intérimaires dans les effectifs du jour.'))),
+        el('div', { class: 'pied' }, msg, bPlus, bActu))), bulle);
     dessiner();
     dire('Chargement…');
     try {
