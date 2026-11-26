@@ -49,17 +49,32 @@
   }
 
   // --- 3 : logo au centre du haut de page ----------------------------------------------------------------------------
-  const GENANT = 'a,button,input,select,textarea,label,img,svg,h1,h2,h3,form,.btn,[role="button"],[data-action]';
-  function gene(el, logo) {
-    if (!el || el === logo || el === document.documentElement || el === document.body) return false;
-    if (el.closest(GENANT)) return true;
-    return [...el.childNodes].some((n) => n.nodeType === 3 && n.textContent.trim());
+  // Ce qui gêne vraiment sous le logo : un bouton, un champ, une image, ou du TEXTE affiché à cet endroit. Un titre ou un
+  // bloc qui occupe toute la largeur mais dont le texte est ailleurs ne gêne pas (1.8.14 se masquait à tort sur ces pages).
+  const CONTROLES = 'a,button,input,select,textarea,label,img,svg,canvas,.btn,[role="button"]';
+  function gene(el, x, y) {
+    if (!el || el === document.documentElement || el === document.body) return false;
+    if (el.closest(CONTROLES)) return true;
+    const plage = document.createRange();
+    for (const n of el.childNodes) {
+      if (n.nodeType !== 3 || !n.textContent.trim()) continue;
+      plage.selectNodeContents(n);
+      for (const r of plage.getClientRects()) if (x >= r.left - 6 && x <= r.right + 6 && y >= r.top - 4 && y <= r.bottom + 4) return true;
+    }
+    return false;
   }
+  /** Titre de la page : .text-big-title (Planning) ou h1, dans la zone de contenu, près du haut. */
+  function titreDePage(gauche) {
+    return [...document.querySelectorAll('.text-big-title, h1, #title')].find((e) => {
+      const r = e.getBoundingClientRect();
+      return r.height > 0 && r.width > 0 && r.right > gauche && !e.closest('#global-sidebar');
+    }) || null;
+  }
+  let defile = 0;   // défilement de la page ou d'une zone interne, quand aucun titre ne permet de le suivre
   function centre() {
     let c = document.getElementById(ID_CENTRE);
-    const titre = document.querySelector('.text-big-title');
     const sb = document.getElementById('global-sidebar');
-    if (!titre || !sb) { if (c) c.style.visibility = 'hidden'; return; }
+    if (!sb) { if (c) c.style.visibility = 'hidden'; return; }
     if (!c) {
       c = document.createElement('img');
       c.id = ID_CENTRE; c.src = LOGO; c.alt = '';
@@ -67,16 +82,18 @@
       c.style.cssText = 'position:fixed;height:34px;width:auto;z-index:5;pointer-events:none;user-select:none;visibility:hidden;transform:translate(-50%,-50%)';
       document.body.appendChild(c);
     }
-    const t = titre.getBoundingClientRect(), gauche = sb.getBoundingClientRect().right;
-    const x = gauche + (window.innerWidth - gauche) / 2, y = t.top + t.height / 2;
+    const gauche = sb.getBoundingClientRect().right;
+    const titre = titreDePage(gauche), t = titre ? titre.getBoundingClientRect() : null;
+    // Hauteur : celle du titre s'il est près du haut ; sinon 40 px du haut (hauteur habituelle des titres d'Ulyss), page non défilée.
+    const suivi = t && t.top < 160;
+    const x = gauche + (window.innerWidth - gauche) / 2, y = suivi ? t.top + Math.min(t.height, 48) / 2 : 40;
     c.style.left = Math.round(x) + 'px'; c.style.top = Math.round(y) + 'px';
-    // Hors écran (page défilée) ou recouvrant quelque chose : masqué.
-    let visible = t.height > 0 && y > 12 && y < window.innerHeight - 12;
+    let visible = suivi ? (y > 12 && y < window.innerHeight - 12) : defile < 8 && !(t && t.top < 0);
     if (visible) {
       const l = (c.naturalWidth && c.naturalHeight ? 34 * c.naturalWidth / c.naturalHeight : 200) + 24;
       for (const f of [-0.5, -0.25, 0, 0.25, 0.5]) {
-        const dessous = document.elementsFromPoint(x + f * l, y).find((el) => el !== c);
-        if (gene(dessous, c)) { visible = false; break; }
+        const px = x + f * l, dessous = document.elementsFromPoint(px, y).find((el) => el !== c);
+        if (gene(dessous, px, y)) { visible = false; break; }
       }
     }
     c.style.visibility = visible ? 'visible' : 'hidden';
@@ -90,7 +107,12 @@
   }
   document.addEventListener('turbo:load', poser);
   window.addEventListener('resize', poser);
-  document.addEventListener('scroll', poser, true);          // y compris le défilement d'une zone interne
+  document.addEventListener('scroll', (e) => {               // y compris le défilement d'une zone interne
+    const z = e.target === document ? document.scrollingElement : e.target;
+    if (z && !(z.closest && z.closest('#global-sidebar')) && z.clientHeight > window.innerHeight * 0.5) defile = z.scrollTop || 0;
+    poser();
+  }, true);
+  document.addEventListener('turbo:load', () => { defile = 0; });
   document.addEventListener('transitionend', poser, true);   // fin du repli / dépli de la barre
   new MutationObserver(poser).observe(document.documentElement, { childList: true, subtree: true, attributes: true, attributeFilter: ['class'] });
   poser();
