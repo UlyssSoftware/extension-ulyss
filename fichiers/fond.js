@@ -171,7 +171,9 @@ function envoyerRdv(donnees, cible) {
     var c = r.tarifs && r.tarifs.rdv;
     if (!c || !c.cle || !/^https:\/\/www\.ulyss-software\.com\/extension-ulyss\//.test(String(c.url || ''))) return { ok: false, motif: "réglages de l'envoi absents du fichier chiffré (extension à mettre à jour)" };
     // Serveur /extension-ulyss/ : un sous-dossier par action (25/11/2026). cible « rappel » → rappel-demenagement/rappel.php
-    var url = cible === 'rappel' ? String(c.url).replace(/confirmation-rdv\/envoyer\.php$/, 'rappel-demenagement/rappel.php') : c.url;
+    // cible « charge » → charge/index.php (taux de charge du Planning, 26/11/2026)
+    var DOSSIERS = { rappel: 'rappel-demenagement/rappel.php', charge: 'charge/index.php' };
+    var url = DOSSIERS[cible] ? String(c.url).replace(/confirmation-rdv\/envoyer\.php$/, DOSSIERS[cible]) : c.url;
     return fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Cle': c.cle }, body: JSON.stringify(donnees || {}), cache: 'no-store' })
       .then(function (rep) { return rep.text().then(function (t) { var j = null; try { j = JSON.parse(t); } catch (e) {} return { ok: true, statut: rep.status, corps: j, brut: j ? '' : t.slice(0, 300) }; }); });
   }).catch(function (e) { return { ok: false, motif: 'le script d\'envoi ne répond pas (' + ((e && e.message) || e) + ')' }; });
