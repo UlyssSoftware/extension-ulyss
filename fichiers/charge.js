@@ -29,6 +29,10 @@
     { max: Infinity, nom: 'Peu chargé', fond: '#fdecec', texte: '#a12a2a', trait: '#e25c5c' },
   ];
   const seuil = (n) => SEUILS.find((s) => n <= s.max);
+  // Alerte d'équilibrage (demande du 26/11/2026) : 6 déménageurs ou plus libres sur une seule demi-journée → petit panneau
+  // sur la case, pour inviter à répartir la charge entre le matin et l'après-midi.
+  const ALERTE_DEMI = 6;
+  const PANNEAU = '<svg width="15" height="15" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3.2 22 20.5H2z" fill="#f59e0b" stroke="#fff" stroke-width="1.6" stroke-linejoin="round"/><path d="M12 9.5v5.2" stroke="#fff" stroke-width="2.2" stroke-linecap="round"/><circle cx="12" cy="17.6" r="1.25" fill="#fff"/></svg>';
   // Relecture de sécurité (changements faits hors extension : absences, postes sans extension)
   const DELAI_PROCHE = 2 * 3600, DELAI_LOIN = 24 * 3600, JOURS_PROCHES = 15;
 
@@ -104,7 +108,10 @@
     .ent{font-size:11px;color:#94a3b8;text-align:center;font-weight:600;letter-spacing:.6px;text-transform:uppercase;padding-bottom:2px}
     .sem{font-size:11px;color:#94a3b8;display:flex;align-items:center;font-variant-numeric:tabular-nums}
     .case{border-radius:12px;padding:8px 10px 7px 12px;min-height:60px;display:flex;flex-direction:column;justify-content:space-between;background:#f6f8fb;color:#94a3b8;transition:transform .12s,box-shadow .12s}
-    .case .d{font-size:11px;font-weight:500;opacity:.75}
+    .case .d{font-size:11px;font-weight:500;display:flex;justify-content:space-between;align-items:center;min-height:16px}
+    .case .d>span:first-child{opacity:.75}
+    .alerte{display:inline-flex;filter:drop-shadow(0 1px 1.5px rgba(120,70,0,.35))}
+    .leg .alerte{vertical-align:-3px;margin-right:5px}
     .case .n{font-size:22px;font-weight:650;line-height:1.05;letter-spacing:-.5px;font-variant-numeric:tabular-nums}
     .case .s{font-size:10.5px;opacity:.8;min-height:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
     .case.passe{background:transparent;color:#cbd5e1} .case.passe .d{opacity:.6}
@@ -169,13 +176,19 @@
         for (let i = 0; i < 5; i++) {
           const d = plus(l, i), c = connus[d];
           if (d < auj) { grille.append(el('div', { class: 'case passe' }, el('div', { class: 'd' }, court(d)))); continue; }
-          const k = el('div', { class: 'case' + (d === auj ? ' auj' : '') }, el('div', { class: 'd' }, court(d)));
+          const k = el('div', { class: 'case' + (d === auj ? ' auj' : '') }, el('div', { class: 'd' }, el('span', {}, court(d))));
           if (c) {
             const sl = seuil(c.j);
             k.style.background = sl.fond; k.style.color = sl.texte; k.style.boxShadow = 'inset 3px 0 0 ' + sl.trait;
             const demi = [c.m ? `matin ${c.m > 0 ? '+' : ''}${c.m}` : '', c.a ? `ap.-midi ${c.a > 0 ? '+' : ''}${c.a}` : ''].filter(Boolean).join(' · ');
             k.title = `${sl.nom} — ${c.j} déménageur(s) libre(s) la journée` + (demi ? ` ; en plus : ${demi}` : '') + (c.lu ? ` — lu à ${new Date(c.lu * 1000).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}` : '');
             k.append(el('div', { class: 'n' }, String(c.j)), el('div', { class: 's' }, (enAttente.has(d) ? '↻ ' : '') + demi));
+            const desequilibre = [c.m >= ALERTE_DEMI ? `${c.m} libres le matin` : '', c.a >= ALERTE_DEMI ? `${c.a} libres l'après-midi` : ''].filter(Boolean);
+            if (desequilibre.length) {
+              const al = el('span', { class: 'alerte' }); al.innerHTML = PANNEAU;
+              k.firstChild.append(al);
+              k.title = `⚠ Charge à équilibrer : ${desequilibre.join(' et ')}.\n` + k.title;
+            }
           } else {
             k.classList.add('attente');
             k.append(el('div', { class: 'n' }, vides.has(d) ? '—' : enAttente.has(d) ? '…' : ''), el('div', { class: 's' }));
@@ -224,6 +237,7 @@
         el('div', { class: 'tete' }, el('b', {}, 'Taux de charge', el('small', {}, 'Déménageurs encore libres par jour, tout le groupe')), el('button', { class: 'x', title: 'Fermer', onclick: fermer }, '✕')),
         el('div', { class: 'corps' }, grille,
           el('div', { class: 'leg' }, SEUILS.slice().reverse().map((s) => el('span', {}, el('i', { style: 'background:' + s.fond + ';box-shadow:inset 3px 0 0 ' + s.trait }), s.nom)),
+            (() => { const a = el('span', {}); a.innerHTML = '<span class="alerte">' + PANNEAU + '</span>' + ALERTE_DEMI + ' libres ou plus sur une demi-journée : charge à équilibrer'; return a; })(),
             el('span', { class: 'note' }, 'Le chiffre : libres la journée entière. Dessous : libres en plus sur une demi-journée.'))),
         el('div', { class: 'pied' }, msg, bPlus, bActu))));
     dessiner();
