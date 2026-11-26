@@ -35,6 +35,13 @@
   const PANNEAU = '<svg width="15" height="15" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3.2 22 20.5H2z" fill="#f59e0b" stroke="#fff" stroke-width="1.6" stroke-linejoin="round"/><path d="M12 9.5v5.2" stroke="#fff" stroke-width="2.2" stroke-linecap="round"/><circle cx="12" cy="17.6" r="1.25" fill="#fff"/></svg>';
   // Relecture de sécurité (changements faits hors extension : absences, postes sans extension)
   const DELAI_PROCHE = 2 * 3600, DELAI_LOIN = 24 * 3600, JOURS_PROCHES = 15;
+  // Intérimaires (demande du 26/11/2026) : nombre de temporaires présents dans les effectifs du jour. Relevé production 26/11 :
+  // vue d'affectation du jour (non compacte, ~5 s), panneau [data-type=collaborator][data-id] ; la couleur de fond est celle
+  // de la société — [Limo Dem] les intérimaires sont rattachés à SAS LIMO DEM, fond gris « #00000050 » ; les fiches EXT n'y
+  // figurent pas. « Pris » = bloc intérieur .border-card-grey. Une page d'Ulyss par jour : lu d'office pour les seuls
+  // INTERIM_JOURS prochains jours ouvrés, au plus une fois par 24 h ; au-delà, à la demande (clic sur la case).
+  const INTERIM_JOURS = 10, INTERIM_DELAI = 24 * 3600;
+  const FOND_INTERIM = /background-color:\s*#000000/i;
 
   const EXT = (() => { try { return typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.id ? chrome.runtime : null; } catch (e) { return null; } })();
   function demander(msg) {
@@ -93,6 +100,16 @@
     return { jours: compteurs(doc), structure: uneStructure(doc) };
   }
 
+  /** Un jour entier par la vue d'affectation : compteurs du jour + intérimaires présents (i) et déjà pris (ip). */
+  async function lireJourComplet(date) {
+    const html = await fetch(`/exploitation_requirements/affectation?date=${date}`, { credentials: 'same-origin' }).then((r) => { if (!r.ok) throw new Error('Planning : ' + r.status); return r.text(); });
+    const doc = new DOMParser().parseFromString(html, 'text/html');
+    const gens = [...doc.querySelectorAll('[data-type="collaborator"][data-id]')];
+    if (!gens.length) return null;   // panneau absent : on ne conclut pas « zéro intérimaire »
+    const interim = gens.filter((g) => FOND_INTERIM.test(g.getAttribute('style') || ''));
+    return { compteurs: compteurs(doc)[date] || null, i: interim.length, ip: interim.filter((g) => g.querySelector('.border-card-grey')).length };
+  }
+
   // ---------------------------------------------------------------------------
   // Fenêtre
   // ---------------------------------------------------------------------------
@@ -111,6 +128,7 @@
     .case .d{font-size:11px;font-weight:500;display:flex;justify-content:space-between;align-items:center;min-height:16px}
     .case .d>span:first-child{opacity:.75}
     .alerte{display:inline-flex;filter:drop-shadow(0 1px 1.5px rgba(120,70,0,.35))}
+    .case{position:relative} .case .alerte{position:absolute;top:6px;right:7px} .case .alerte svg{width:30px;height:30px}
     .leg .alerte{vertical-align:-3px;margin-right:5px}
     .case .n{font-size:22px;font-weight:650;line-height:1.05;letter-spacing:-.5px;font-variant-numeric:tabular-nums}
     .case .s{font-size:10.5px;opacity:.8;min-height:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -163,7 +181,9 @@
     function perime(d, tout) {
       const c = connus[d];
       if (vides.has(d)) return false;
-      if (!c || c.sale || tout) return true;
+      if (!c || c.sale) return true;
+      if (heureServeur - (c.lu || 0) < 90) return false;   // vient d'être lu (page des intérimaires)
+      if (tout) return true;
       const age = heureServeur - (c.lu || 0);
       return age > (d <= plus(auj, JOURS_PROCHES) ? DELAI_PROCHE : DELAI_LOIN);
     }
@@ -183,6 +203,13 @@
             const demi = [c.m ? `matin ${c.m > 0 ? '+' : ''}${c.m}` : '', c.a ? `ap.-midi ${c.a > 0 ? '+' : ''}${c.a}` : ''].filter(Boolean).join(' · ');
             k.title = `${sl.nom} — ${c.j} déménageur(s) libre(s) la journée` + (demi ? ` ; en plus : ${demi}` : '') + (c.lu ? ` — lu à ${new Date(c.lu * 1000).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}` : '');
             k.append(el('div', { class: 'n' }, String(c.j)), el('div', { class: 's' }, (enAttente.has(d) ? '↻ ' : '') + demi));
+            if (typeof c.i === 'number') {
+              k.title += `\nIntérimaires au planning : ${c.i}` + (c.i ? ` (${c.i - (c.ip || 0)} libre${c.i - (c.ip || 0) > 1 ? 's' : ''}, ${c.ip || 0} déjà pris)` : '');
+            } else {
+              k.title += '\nIntérimaires : cliquer sur la case pour les lire.';
+              k.style.cursor = 'pointer';
+              k.addEventListener('click', () => lireInterimaires([d]));
+            }
             const desequilibre = [c.m >= ALERTE_DEMI ? `${c.m} libres le matin` : '', c.a >= ALERTE_DEMI ? `${c.a} libres l'après-midi` : ''].filter(Boolean);
             if (desequilibre.length) {
               const al = el('span', { class: 'alerte' }); al.innerHTML = PANNEAU;
@@ -198,16 +225,62 @@
       }
     }
 
+    // Secours local : un serveur pas encore mis à jour ne garde pas i / ip ; sans cela chaque ouverture relirait tout.
+    const CLE_LOCALE = 'ext-ulyss-interimaires';
+    function memoInterim(d, v) {
+      try { const m = JSON.parse(localStorage.getItem(CLE_LOCALE) || '{}'); Object.keys(m).forEach((k) => { if (k < auj) delete m[k]; }); m[d] = { i: v.i, ip: v.ip, ilu: v.ilu }; localStorage.setItem(CLE_LOCALE, JSON.stringify(m)); } catch (e) { /* sans importance */ }
+    }
+    function reprendreInterim() {
+      try { const m = JSON.parse(localStorage.getItem(CLE_LOCALE) || '{}'); Object.keys(m).forEach((d) => { const c = connus[d]; if (c && d >= auj && (typeof c.i !== 'number' || (c.ilu || 0) < (m[d].ilu || 0))) Object.assign(c, m[d]); }); } catch (e) { /* sans importance */ }
+    }
+    /** Intérimaires : une page d'Ulyss par jour, en série. Met aussi à jour les compteurs du jour (même page). */
+    async function lireInterimaires(dates) {
+      if (enLecture) return;
+      enLecture = true; bActu.disabled = true; bPlus.disabled = true;
+      try {
+        for (const [n, d] of dates.entries()) {
+          if (!vivant) break;
+          dire(`Intérimaires : lecture du ${court(d)}` + (dates.length > 1 ? ` (${n + 1}/${dates.length})` : '') + '…');
+          const r = await lireJourComplet(d);
+          if (!r) continue;
+          const maintenant = Math.floor(Date.now() / 1000);
+          const base = r.compteurs ? { ...r.compteurs, lu: maintenant } : connus[d];
+          if (!base) continue;
+          connus[d] = { ...base, i: r.i, ip: r.ip, ilu: maintenant };
+          memoInterim(d, connus[d]);
+          heureServeur = Math.max(heureServeur, maintenant);
+          if (partage) serveur({ action: 'ecrire', jours: { [d]: { j: connus[d].j, m: connus[d].m, a: connus[d].a, i: r.i, ip: r.ip } } }, true).catch(() => { partage = false; });
+          dessiner();
+        }
+        if (vivant) dire('À jour.');
+      } catch (e) {
+        if (vivant) dire('Lecture interrompue : ' + e.message, true);
+      } finally {
+        enLecture = false; bActu.disabled = false; bPlus.disabled = false;
+      }
+    }
+    /** Jours proches dont le nombre d'intérimaires manque ou date de plus de 24 h. */
+    function interimairesAFaire(tout) {
+      return joursAffiches().slice(0, INTERIM_JOURS).filter((d) => {
+        const c = connus[d];
+        return !vides.has(d) && (!c || typeof c.i !== 'number' || tout || heureServeur - (c.ilu || 0) > INTERIM_DELAI);
+      });
+    }
+
     /** Relit dans Ulyss, page par page et jamais en parallèle, les seuls jours périmés. */
     async function mettreAJour(tout) {
       if (enLecture) return;
+      // D'abord les intérimaires des jours proches : leur page donne aussi les compteurs de ces jours.
+      const proches = interimairesAFaire(tout);
+      if (proches.length) await lireInterimaires(proches);
+      if (enLecture || !vivant) return;
       enLecture = true; bActu.disabled = true; bPlus.disabled = true;
       try {
         let aLire = joursAffiches().filter((d) => perime(d, tout));
         const total = aLire.length;
-        if (!total) { dire('À jour.'); return; }
+        if (!total) dire('À jour.');
         let structure = uneStructure(document);
-        while (aLire.length && vivant) {
+        while (total && aLire.length && vivant) {
           dessiner(new Set(aLire));
           dire(`Lecture du Planning : ${total - aLire.length}/${total} jour(s)…`);
           const d = aLire[0];
@@ -216,7 +289,7 @@
           const lus = Object.keys(page.jours).filter((x) => x >= auj);
           if (!page.jours[d]) vides.add(d);
           const maintenant = Math.floor(Date.now() / 1000);
-          lus.forEach((x) => { connus[x] = { ...page.jours[x], lu: maintenant }; });
+          lus.forEach((x) => { const v = connus[x] || {}; connus[x] = { ...(typeof v.i === 'number' ? { i: v.i, ip: v.ip, ilu: v.ilu } : {}), ...page.jours[x], lu: maintenant }; });
           heureServeur = Math.max(heureServeur, maintenant);
           aLire = aLire.filter((x) => x !== d && !lus.includes(x));
           if (lus.length && partage) {
@@ -224,7 +297,7 @@
             serveur({ action: 'ecrire', jours: envoi }, true).catch(() => { partage = false; });
           }
         }
-        if (vivant) { dessiner(); dire(partage ? 'À jour.' : 'À jour sur ce poste — partage entre postes pas encore en service.'); }
+        if (vivant && total) { dessiner(); dire(partage ? 'À jour.' : 'À jour sur ce poste — partage entre postes pas encore en service.'); }
       } catch (e) {
         if (vivant) { dessiner(); dire('Lecture interrompue : ' + e.message, true); }
       } finally {
@@ -245,6 +318,7 @@
     try {
       const r = await serveur({ action: 'lire' });
       connus = r.jours || {}; heureServeur = r.maintenant || heureServeur;
+      reprendreInterim();
     } catch (e) {
       partage = false;
       if (e.message === 'code') { dire("Code d'accès de l'extension nécessaire.", true); return; }
