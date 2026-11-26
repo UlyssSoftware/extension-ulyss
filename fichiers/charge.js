@@ -290,15 +290,20 @@
     const b = document.getElementById(ID_BOUTON);
     if (!CHEMIN_PLANNING.test(location.pathname)) { if (b) b.remove(); return; }
     if (b) return;
-    const voisin = [...document.querySelectorAll('a.btn')].find((x) => ['ressources', 'visualisation', 'affectation'].includes(x.textContent.trim().toLowerCase()));
+    // Place (demande du 26/11/2026) : à gauche, juste après le choix de date et de semaine du Planning
+    // (div.flex.ml-6 : flèches, form avec input#date[name=date], « Semaine-NN », flèches). À défaut, avant « Ressources ».
+    const champDate = document.querySelector('form input[type="date"][name="date"]');
+    const groupeDate = champDate && champDate.form && champDate.form.parentElement && champDate.form.parentElement.querySelector(':scope > a.btn') ? champDate.form.parentElement : null;
+    const voisin = groupeDate || [...document.querySelectorAll('a.btn')].find((x) => ['ressources', 'visualisation', 'affectation'].includes(x.textContent.trim().toLowerCase()));
     if (!voisin) return;
     const bouton = document.createElement('a');
     bouton.id = ID_BOUTON; bouton.href = '#';
-    bouton.className = 'btn btn-outline mr-3.5';
+    bouton.className = groupeDate ? 'btn btn-outline ml-4' : 'btn btn-outline mr-3.5';
+    if (groupeDate) bouton.style.cssText = 'align-self:flex-start;white-space:nowrap';
     bouton.textContent = 'Taux de charge';
     bouton.title = 'Déménageurs libres par jour sur les semaines à venir (Extension Ulyss)';
     bouton.addEventListener('click', (e) => { e.preventDefault(); ouvrir(); });
-    voisin.insertAdjacentElement('beforebegin', bouton);
+    voisin.insertAdjacentElement(groupeDate ? 'afterend' : 'beforebegin', bouton);
   }
   document.addEventListener('turbo:load', insererBouton);
   new MutationObserver(() => insererBouton()).observe(document.documentElement, { childList: true, subtree: true });
