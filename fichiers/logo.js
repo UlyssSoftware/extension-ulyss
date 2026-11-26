@@ -79,7 +79,7 @@
       c = document.createElement('img');
       c.id = ID_CENTRE; c.src = LOGO; c.alt = '';
       c.setAttribute('aria-hidden', 'true');
-      c.style.cssText = 'position:fixed;height:34px;width:auto;z-index:5;pointer-events:none;user-select:none;visibility:hidden;transform:translate(-50%,-50%)';
+      c.style.cssText = 'position:fixed;height:51px;width:auto;z-index:5;pointer-events:none;user-select:none;visibility:hidden;transform:translate(-50%,-50%)';
       document.body.appendChild(c);
     }
     const gauche = sb.getBoundingClientRect().right;
@@ -90,7 +90,7 @@
     c.style.left = Math.round(x) + 'px'; c.style.top = Math.round(y) + 'px';
     let visible = suivi ? (y > 12 && y < window.innerHeight - 12) : defile < 8 && !(t && t.top < 0);
     if (visible) {
-      const l = (c.naturalWidth && c.naturalHeight ? 34 * c.naturalWidth / c.naturalHeight : 200) + 24;
+      const l = (c.naturalWidth && c.naturalHeight ? 51 * c.naturalWidth / c.naturalHeight : 300) + 24;
       for (const f of [-0.5, -0.25, 0, 0.25, 0.5]) {
         const px = x + f * l, dessous = document.elementsFromPoint(px, y).find((el) => el !== c);
         if (gene(dessous, px, y)) { visible = false; break; }
