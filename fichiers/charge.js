@@ -394,7 +394,7 @@
       memo({ jour: auj, fait: true });
     } catch (e) {
       // Code d'accès jamais saisi, serveur pas à jour, page quittée en cours de lecture… : on réessaiera plus tard.
-      memo({ jour: auj, attendre: Date.now() + 60000 });
+      memo({ jour: auj, attendre: Date.now() + 60000, erreur: String((e && e.message) || e).slice(0, 120) });   // motif gardé pour le diagnostic
     } finally {
       prechargeLance = false;
     }
