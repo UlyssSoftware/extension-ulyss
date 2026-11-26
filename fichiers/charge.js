@@ -94,15 +94,18 @@
     const m = a && (a.getAttribute('href').match(/structure_id=(\d+)/) || [])[1];
     return m || '';
   }
+  // Une seule lecture du Planning à la fois, que la demande vienne de la fenêtre ou du préchargement du matin.
+  let chaine = Promise.resolve();
+  const enSerie = (f) => { const p = chaine.then(f, f); chaine = p.catch(() => {}); return p; };
   async function lirePage(date, structure) {
-    const html = await fetch(`/exploitation_requirements?date=${date}` + (structure ? `&structures%5B%5D=${structure}` : ''), { credentials: 'same-origin' }).then((r) => { if (!r.ok) throw new Error('Planning : ' + r.status); return r.text(); });
+    const html = await enSerie(() => fetch(`/exploitation_requirements?date=${date}` + (structure ? `&structures%5B%5D=${structure}` : ''), { credentials: 'same-origin' }).then((r) => { if (!r.ok) throw new Error('Planning : ' + r.status); return r.text(); }));
     const doc = new DOMParser().parseFromString(html, 'text/html');
     return { jours: compteurs(doc), structure: uneStructure(doc) };
   }
 
   /** Un jour entier par la vue d'affectation : compteurs du jour + intérimaires présents (i) et déjà pris (ip). */
   async function lireJourComplet(date) {
-    const html = await fetch(`/exploitation_requirements/affectation?date=${date}`, { credentials: 'same-origin' }).then((r) => { if (!r.ok) throw new Error('Planning : ' + r.status); return r.text(); });
+    const html = await enSerie(() => fetch(`/exploitation_requirements/affectation?date=${date}`, { credentials: 'same-origin' }).then((r) => { if (!r.ok) throw new Error('Planning : ' + r.status); return r.text(); }));
     const doc = new DOMParser().parseFromString(html, 'text/html');
     const gens = [...doc.querySelectorAll('[data-type="collaborator"][data-id]')];
     if (!gens.length) return null;   // panneau absent : on ne conclut pas « zéro intérimaire »
@@ -337,6 +340,8 @@
             (() => { const a = el('span', {}); a.innerHTML = '<span class="alerte">' + PANNEAU + '</span>' + ALERTE_DEMI + ' libres ou plus sur une demi-journée : charge à équilibrer'; return a; })(),
             el('span', { class: 'note' }, 'Le chiffre : libres la journée entière. Dessous : libres en plus sur une demi-journée. Au survol : intérimaires dans les effectifs du jour.'))),
         el('div', { class: 'pied' }, msg, bPlus, bActu))), bulle);
+    const surJour = (e) => { if (!vivant) { document.removeEventListener('ext-ulyss-charge-jour', surJour); return; } connus[e.detail.d] = e.detail.v; vides.delete(e.detail.d); if (!enLecture) dessiner(); };
+    document.addEventListener('ext-ulyss-charge-jour', surJour);
     dessiner();
     dire('Chargement…');
     try {
@@ -351,6 +356,51 @@
     dessiner();
     mettreAJour(false);
   }
+
+  // ---------------------------------------------------------------------------
+  // Préchargement du matin (demande du 26/11/2026, 14 h 33) : le premier poste connecté à Ulyss dans la journée lit, en
+  // arrière-plan et une page à la fois, compteurs et intérimaires des SEMAINES à venir (~5 s par jour, un peu plus de
+  // 3 minutes), sans attendre que quelqu'un ouvre le calendrier. Le serveur dit « déjà fait » ou « en cours ailleurs » ;
+  // un changement de page interrompt la lecture, qui reprend à la page suivante, sur ce poste ou sur un autre.
+  // ---------------------------------------------------------------------------
+  const CLE_PRECHARGE = 'ext-ulyss-precharge';
+  const memo = (v) => { try { if (v) localStorage.setItem(CLE_PRECHARGE, JSON.stringify(v)); return JSON.parse(localStorage.getItem(CLE_PRECHARGE) || '{}'); } catch (e) { return {}; } };
+  function idPoste() {
+    try { let p = localStorage.getItem('ext-ulyss-poste'); if (!p) { p = 'p' + Math.random().toString(36).slice(2, 12) + Date.now().toString(36); localStorage.setItem('ext-ulyss-poste', p); } return p; } catch (e) { return ''; }
+  }
+  let prechargeLance = false;
+  async function precharger() {
+    if (prechargeLance || window.top !== window) return;
+    if (!HOTES.test(location.hostname) && !window.__extUlyssRdvEssai) return;
+    if (!document.getElementById('global-sidebar')) return;          // pas connecté à Ulyss
+    const auj = aujourdhui(), m = memo(), poste = idPoste();
+    if (!poste || (m.jour === auj && m.fait) || (m.jour === auj && m.attendre > Date.now())) return;
+    prechargeLance = true;
+    try {
+      const etat = await serveur({ action: 'reserver', poste }, true);
+      if (etat.precharge && etat.precharge.fait) { memo({ jour: auj, fait: true }); return; }
+      if (!etat.accorde) { memo({ jour: auj, attendre: Date.now() + 3 * 60000 }); return; }   // un autre poste s'en charge
+      const minuit = new Date(auj + 'T00:00:00').getTime() / 1000, connus = etat.jours || {};
+      const jours = plage(auj, plus(lundi(auj), SEMAINES * 7 - 1), 400).filter((d) => ouvre(d) && !(connus[d] && typeof connus[d].i === 'number' && (connus[d].ilu || 0) >= minuit));
+      for (const d of jours) {
+        const r = await lireJourComplet(d);
+        if (!r || !r.compteurs) continue;                             // jour qu'Ulyss n'affiche pas (férié…)
+        const v = { ...r.compteurs, i: r.i, ip: 0 };
+        await serveur({ action: 'ecrire', poste, jours: { [d]: v } }, true);
+        const maintenant = Math.floor(Date.now() / 1000);
+        document.dispatchEvent(new CustomEvent('ext-ulyss-charge-jour', { detail: { d, v: { ...v, lu: maintenant, ilu: maintenant } } }));
+      }
+      await serveur({ action: 'terminer', poste }, true);
+      memo({ jour: auj, fait: true });
+    } catch (e) {
+      // Code d'accès jamais saisi, serveur pas à jour, page quittée en cours de lecture… : on réessaiera plus tard.
+      memo({ jour: auj, attendre: Date.now() + 60000 });
+    } finally {
+      prechargeLance = false;
+    }
+  }
+  setTimeout(precharger, 5000);
+  document.addEventListener('turbo:load', () => setTimeout(precharger, 5000));
 
   // ---------------------------------------------------------------------------
   // Signaler les jours modifiés (pour que les autres postes les relisent)
