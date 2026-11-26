@@ -305,7 +305,30 @@
     bouton.addEventListener('click', (e) => { e.preventDefault(); ouvrir(); });
     voisin.insertAdjacentElement(groupeDate ? 'afterend' : 'beforebegin', bouton);
   }
-  document.addEventListener('turbo:load', insererBouton);
-  new MutationObserver(() => insererBouton()).observe(document.documentElement, { childList: true, subtree: true });
-  insererBouton();
+  /**
+   * Raccourci sur tous les écrans d'Ulyss (demande du 26/11/2026) : en bas de la barre latérale, juste au-dessus de
+   * « ext x.y.z », pour consulter la charge sans quitter le module en cours. Même fenêtre que le bouton du Planning.
+   */
+  const ID_RACCOURCI = 'ext-ulyss-raccourci-charge';
+  function insererRaccourci() {
+    if (!HOTES.test(location.hostname) && !window.__extUlyssRdvEssai) return;
+    if (document.getElementById(ID_RACCOURCI)) return;
+    const zone = document.querySelector('#global-sidebar .discret-scroll') || document.getElementById('global-sidebar');
+    if (!zone) return;
+    const r = document.createElement('a');
+    r.id = ID_RACCOURCI; r.href = '#';
+    r.title = 'Taux de charge : déménageurs libres par jour (Extension Ulyss)';
+    // Collé en bas de la barre (position:sticky) : visible même quand la liste des modules dépasse la hauteur de l'écran.
+    const barre = document.getElementById('global-sidebar');
+    const fond = [zone, barre].map((e) => (e ? getComputedStyle(e).backgroundColor : '')).find((c) => c && !/rgba\(0, 0, 0, 0\)|transparent/.test(c)) || '#fbfcfc';
+    r.style.cssText = 'display:block;position:sticky;bottom:0;z-index:2;background:' + fond + ';text-align:center;padding:10px 4px 8px;font:11px/1.2 system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif;color:#6b7a99;text-decoration:none;white-space:nowrap;cursor:pointer';
+    r.innerHTML = '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" style="display:block;margin:0 auto 3px"><rect x="3.5" y="5" width="17" height="15" rx="3"/><path d="M3.5 9.5h17M8 3v4M16 3v4"/><path d="M8 16v-2.5M12 16v-4M16 16v-1.5" stroke-width="2"/></svg>Charge';
+    r.addEventListener('click', (e) => { e.preventDefault(); e.stopPropagation(); ouvrir(); });
+    const version = document.getElementById('gc-version');
+    if (version && version.parentElement === zone) zone.insertBefore(r, version); else zone.appendChild(r);
+  }
+  const poser = () => { insererBouton(); insererRaccourci(); };
+  document.addEventListener('turbo:load', poser);
+  new MutationObserver(poser).observe(document.documentElement, { childList: true, subtree: true });
+  poser();
 })();
