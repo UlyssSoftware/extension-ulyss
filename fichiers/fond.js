@@ -172,15 +172,64 @@ function envoyerRdv(donnees, cible) {
     if (!c || !c.cle || !/^https:\/\/www\.ulyss-software\.com\/extension-ulyss\//.test(String(c.url || ''))) return { ok: false, motif: "réglages de l'envoi absents du fichier chiffré (extension à mettre à jour)" };
     // Serveur /extension-ulyss/ : un sous-dossier par action (25/11/2026). cible « rappel » → rappel-demenagement/rappel.php
     // cible « charge » → charge/index.php (taux de charge du Planning, 26/11/2026)
-    var DOSSIERS = { rappel: 'rappel-demenagement/rappel.php', charge: 'charge/index.php' };
+    // cibles « avis » → avis/index.php (module Avis clients) et « demande-avis » → demande-avis/avis.php (26/11/2026)
+    var DOSSIERS = { rappel: 'rappel-demenagement/rappel.php', charge: 'charge/index.php', avis: 'avis/index.php', 'demande-avis': 'demande-avis/avis.php' };
     var url = DOSSIERS[cible] ? String(c.url).replace(/confirmation-rdv\/envoyer\.php$/, DOSSIERS[cible]) : c.url;
     return fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Cle': c.cle }, body: JSON.stringify(donnees || {}), cache: 'no-store' })
       .then(function (rep) { return rep.text().then(function (t) { var j = null; try { j = JSON.parse(t); } catch (e) {} return { ok: true, statut: rep.status, corps: j, brut: j ? '' : t.slice(0, 300) }; }); });
   }).catch(function (e) { return { ok: false, motif: 'le script d\'envoi ne répond pas (' + ((e && e.message) || e) + ')' }; });
 }
 
+// ---------- Avis clients : relevé des avis Google (26/11/2026) ----------
+// À la demande d'une page d'Ulyss (avis.js), ouvre chaque fiche Google Maps dans un onglet en arrière-plan ; maps-avis.js
+// y lit les avis récents et les renvoie ; l'onglet est refermé. Si l'onglet en arrière-plan ne rend rien (Google Maps
+// dessine peu dans un onglet caché), second essai dans une petite fenêtre non active. Une fiche à la fois.
+// Seules des adresses de fiche Google Maps sont acceptées ; maps-avis.js n'agit que dans les onglets listés ici.
+var ongletsAvis = {};
+function ouvrirFiche(url, fenetre) {
+  return new Promise(function (ok) {
+    var fini = false, minuterie = null, idOnglet = null, idFenetre = null;
+    var fin = function (r) {
+      if (fini) return; fini = true; clearTimeout(minuterie);
+      if (idOnglet !== null) delete ongletsAvis[idOnglet];
+      try { if (idFenetre !== null) chrome.windows.remove(idFenetre, function () { void chrome.runtime.lastError; }); else if (idOnglet !== null) chrome.tabs.remove(idOnglet, function () { void chrome.runtime.lastError; }); } catch (e) {}
+      ok(r);
+    };
+    var suivre = function (onglet, f) {
+      if (chrome.runtime.lastError || !onglet) return fin({ ok: false, motif: "onglet Google Maps impossible à ouvrir" });
+      idOnglet = onglet.id; idFenetre = f; ongletsAvis[idOnglet] = fin;
+    };
+    minuterie = setTimeout(function () { fin({ ok: false, motif: "Google Maps n'a pas répondu en 50 s (page de consentement Google ou connexion lente)" }); }, 50000);
+    try {
+      if (fenetre) chrome.windows.create({ url: url, type: 'popup', focused: false, width: 520, height: 760 }, function (w) { suivre(w && w.tabs && w.tabs[0], w ? w.id : null); });
+      else chrome.tabs.create({ url: url, active: false }, function (t) { suivre(t, null); });
+    } catch (e) { fin({ ok: false, motif: String((e && e.message) || e) }); }
+  });
+}
+var releveAvisEnCours = null;
+function releverAvis(fiches) {
+  if (releveAvisEnCours) return releveAvisEnCours;
+  var liste = (Array.isArray(fiches) ? fiches : []).filter(function (f) { return f && /^[A-Z]$/.test(String(f.s)) && /^https:\/\/www\.google\.com\/maps\/place\/[^?#]+$/.test(String(f.url)); }).slice(0, 6);
+  releveAvisEnCours = liste.reduce(function (suite, f) {
+    return suite.then(function (res) {
+      return ouvrirFiche(f.url, false).then(function (r) { return r.ok ? r : ouvrirFiche(f.url, true); }).then(function (r) {
+        res.push({ s: f.s, ok: !!r.ok, motif: r.motif || '', nb: r.nb || 0, avis: r.ok && Array.isArray(r.avis) ? r.avis.slice(0, 20) : [] });
+        return res;
+      });
+    });
+  }, Promise.resolve([])).then(function (res) { releveAvisEnCours = null; return { ok: true, fiches: res }; }, function (e) { releveAvisEnCours = null; return { ok: false, motif: String((e && e.message) || e) }; });
+  return releveAvisEnCours;
+}
+
 chrome.runtime.onMessage.addListener(function (msg, expediteur, repondre) {
   if (!msg || !msg.type) return;
+  if (msg.type === 'gc-avis-onglet') { repondre({ oui: !!(expediteur && expediteur.tab && ongletsAvis[expediteur.tab.id]) }); return; }
+  if (msg.type === 'gc-avis-lu') { var f = expediteur && expediteur.tab && ongletsAvis[expediteur.tab.id]; if (f) f(msg.resultat && typeof msg.resultat === 'object' ? msg.resultat : { ok: false, motif: 'réponse illisible' }); return; }
+  if (msg.type === 'gc-avis-releve') {
+    // demandé par une page d'Ulyss seulement
+    if (!expediteur || !expediteur.tab || !/^https:\/\/(ulyss\.fr|fraisseix\.staging\.unova\.fr)\//.test(String(expediteur.url || expediteur.tab.url || ''))) { repondre({ ok: false, motif: 'demande refusée' }); return; }
+    releverAvis(msg.fiches).then(repondre); return true;
+  }
   if (msg.type === 'gc-etat') {
     versionDisque().then(function (d) { repondre({ chargee: chrome.runtime.getManifest().version, disque: d }); });
     return true;   // réponse différée
