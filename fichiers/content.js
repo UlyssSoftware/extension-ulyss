@@ -623,7 +623,7 @@
     '.gcm-t{font-weight:600}.gcm-pill.var .gcm-t{color:#92400e}.gcm-s{color:#64748b}' +
     '.gcm-mini{display:inline-flex;align-items:center;gap:3px;width:84px;height:6px}.gcm-mini i{display:block;height:6px;border-radius:3px;background:#cbd5e1;min-width:5px}.gcm-pill.ok .gcm-mini i{background:#86efac}.gcm-pill.var .gcm-mini i:nth-child(even){background:#fbbf24}' +
     '.gcm-chev{color:#94a3b8;transition:transform .15s}#gc-coherence details[open] .gcm-chev{transform:rotate(180deg)}' +
-    '.gcm-pop{position:absolute;top:calc(100% + 10px);left:50%;transform:translateX(-50%);width:max-content;max-width:min(94vw,1500px);background:#fff;border:1px solid #dfe5ee;border-radius:16px;box-shadow:0 18px 50px rgba(31,42,68,.18);padding:16px 18px 14px;z-index:40}' +
+    '.gcm-pop{position:absolute;top:calc(100% + 10px);right:0;width:max-content;max-width:min(94vw,1500px);background:#fff;border:1px solid #dfe5ee;border-radius:16px;box-shadow:0 18px 50px rgba(31,42,68,.18);padding:16px 18px 14px;z-index:40}' +
     '.gcm-tete{display:flex;align-items:baseline;justify-content:space-between;gap:24px;margin-bottom:12px}.gcm-tete b{font-size:15px}.gcm-tete span{color:#64748b;font-size:12.5px}' +
     '.gcm-flux{display:flex;flex-wrap:wrap;align-items:stretch;gap:12px 0;max-height:62vh;overflow:auto}.gcm-pas{display:flex;align-items:stretch;flex:none}' +
     '.gcm-bloc{flex:none;min-width:220px;max-width:300px;border:1px solid #e3e8f0;border-radius:12px;background:#f8fafc;padding:12px 14px}' +
@@ -662,7 +662,9 @@
     if (!bloc) { bloc = document.createElement('div'); bloc.id = 'gc-coherence'; }
     bloc.setAttribute('data-sig', sig);
     if (!enPlace()) {
-      if (ligne) { if (getComputedStyle(ligne).position === 'static') ligne.style.position = 'relative'; ligne.appendChild(bloc); }
+      // Sur la ligne de la phase (flex, space-between : titre à gauche, pagination à droite) : juste avant la pagination,
+      // donc le plus à droite possible, sans jamais chevaucher le titre ni les dates (demande de Guillaume, 26/11/2026).
+      if (ligne) { var pag = [].filter.call(ligne.children, function (c) { return c !== bloc && !c.contains(titre); }).pop(); if (pag) ligne.insertBefore(bloc, pag); else ligne.appendChild(bloc); }
       else cal.parentElement.insertBefore(bloc, cal);
     }
     if (etapes.length < 2) { bloc.hidden = true; bloc.innerHTML = ''; pastilles = {}; poserPastilles(); return; }
@@ -741,7 +743,7 @@
     // Mini-frise dans la pastille : un segment par bloc, large comme son nombre d'étapes.
     var mini = '<span class="gcm-mini" aria-hidden="true">' + blocs.map(function (b) { return '<i style="flex:' + b.etapes.length + '"></i>'; }).join('') + '</span>';
     bloc.hidden = false;
-    bloc.style.cssText = ligne ? 'position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);z-index:30' : 'position:relative;margin:0 0 12px';
+    bloc.style.cssText = ligne ? 'position:relative;margin-left:auto;margin-right:16px;flex:none;z-index:30' : 'position:relative;margin:0 0 12px';
     // Toujours replié à l'arrivée : la pastille dit s'il y a des changements, le détail se déplie par-dessus le calendrier sans décaler la page.
     bloc.innerHTML = '<style>' + STYLE_MOYENS + '</style><details' + (ouvert ? ' open' : '') + '><summary><span class="gcm-pill ' + (n ? 'var' : 'ok') + '"><span class="gcm-dot"></span>' +
       '<span class="gcm-t">' + (n ? pluriel(n, 'changement') + ' de moyens' : 'Moyens constants') + '</span><span class="gcm-s">' + etapes.length + ' étapes</span>' + mini + ICONES.chevron + '</span></summary>' +
