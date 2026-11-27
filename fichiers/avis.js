@@ -286,6 +286,7 @@
       bRelever.disabled = false;
     } }, 'Relever maintenant');
     const bTout = el('button', { class: 'lien', onclick: () => { tout = !tout; dessiner(); } }, '');
+    const bDepot = el('button', { class: 'mini', title: 'La bande verticale prévue pour l\'écran du dépôt, avec les avis et les équipes du moment', onclick: () => { if (etat) apercuDepot(etat); } }, 'Aperçu écran dépôt');
     function dire(t, erreur) { msg.textContent = t || ''; msg.className = 'msg' + (erreur ? ' err' : ''); }
 
     function dessiner() {
@@ -350,11 +351,110 @@
     racine.append(el('div', { class: 'voile', onclick: (e) => { if (e.target === e.currentTarget) fermer(); } },
       el('div', { class: 'fen' },
         el('div', { class: 'tete' }, el('div', {}, el('b', {}, 'Avis clients'), el('small', {}, 'Avis Google de la semaine, rapprochés des dossiers et des équipes. Un avis reste affiché 7 jours.')), el('button', { class: 'x', title: 'Fermer', onclick: fermer }, '✕')),
-        el('div', { class: 'barre' }, zoneFiches, msg, bTout, bRelever),
+        el('div', { class: 'barre' }, zoneFiches, msg, bTout, bDepot, bRelever),
         liste)));
     liste.append(el('div', { class: 'vide' }, 'Chargement…'));
     serveur({ action: 'lire', poste: idPoste() }).then((r) => { etat = r; dessiner(); if (r.releve && r.releve.en_cours && !r.releve.a_moi) dire('Un poste relève les avis en ce moment.'); })
       .catch((e) => { liste.replaceChildren(el('div', { class: 'vide err' }, 'Avis indisponibles : ' + e.message)); });
+  }
+
+  // ---------------------------------------------------------------------------
+  // Aperçu de l'écran du dépôt (27/11/2026) : la bande verticale 480 × 1080 (un quart d'écran), rendue avec les avis
+  // affichables du moment — moins de 7 jours, non retirés, 6 au plus — et les photos des fiches collaborateur d'Ulyss.
+  // Règles de Guillaume (26/11) : titre neutre, avis négatifs comme les autres, « probable » avec son équipe, avis non
+  // rapproché sans équipe, bande vide s'il n'y a pas d'avis récent. Rien n'est enregistré : c'est un aperçu.
+  // ---------------------------------------------------------------------------
+  const SILHOUETTE = 'data:image/svg+xml;utf8,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 80 80"><rect width="80" height="80" fill="#24395C"/><circle cx="40" cy="31" r="14" fill="#7C8BA6"/><path d="M12 80c2-18 14-27 28-27s26 9 28 27z" fill="#7C8BA6"/></svg>');
+  const photos = new Map();   // id de fiche → adresse de la photo (gardée le temps de la page)
+  async function photoFiche(id) {
+    if (!id) return '';
+    if (photos.has(id)) return photos.get(id);
+    let src = '';
+    try {
+      const doc = await page(`/collaborators/${id}`);
+      const img = [...doc.querySelectorAll('img')].find((i) => /active_storage/.test(i.getAttribute('src') || '') && !/logotype|logo/i.test(decodeURIComponent(i.getAttribute('src'))));
+      src = img ? img.getAttribute('src') : '';
+    } catch (e) { src = ''; }
+    photos.set(id, src);
+    return src;
+  }
+  const MOIS_COURTS = ['janv.', 'févr.', 'mars', 'avr.', 'mai', 'juin', 'juil.', 'août', 'sept.', 'oct.', 'nov.', 'déc.'];
+  /** « Sandrine Pantaleao » → « Sandrine P. » ; le nom complet de l'auteur n'est pas affiché au dépôt. */
+  function nomCourt(auteur) {
+    const m = String(auteur || '').trim().split(/\s+/).filter(Boolean);
+    if (!m.length) return 'Client';
+    if (m[0].length <= 2) return m.map((x) => x.charAt(0).toUpperCase() + '.').join(' ');
+    return m[0] + (m.length > 1 ? ' ' + m[m.length - 1].charAt(0).toUpperCase() + '.' : '');
+  }
+  const CSS_DEPOT = `
+    :host{all:initial}
+    .voile{position:fixed;inset:0;background:rgba(10,16,30,.82);z-index:2147483002;display:flex;align-items:center;justify-content:center;font-family:Montserrat,'Segoe UI',Arial,sans-serif}
+    .cadre{position:relative}
+    .bande{width:480px;height:1080px;box-sizing:border-box;display:flex;flex-direction:column;background:#FAF7EE;color:#1A2D4B;transform-origin:top left;box-shadow:0 20px 60px rgba(0,0,0,.5);overflow:hidden}
+    header{background:#1A2D4B;padding:14px 22px 13px;border-bottom:3px solid #CAAE47}
+    header small{display:block;font-size:11px;font-weight:600;letter-spacing:3px;color:#CAAE47}
+    header b{display:block;font-family:'Cormorant Garamond','Cormorant Infant',Georgia,serif;font-size:27px;line-height:30px;font-weight:600;color:#fff;margin-top:2px}
+    article{flex:1;min-height:0;display:flex;flex-direction:column;justify-content:center;border-top:1px solid #E4DDC8}
+    .haut{display:flex;align-items:center;justify-content:space-between}
+    .logo{background:#1A2D4B;color:#CAAE47;font-family:'Cormorant Garamond','Cormorant Infant',Georgia,serif;letter-spacing:3px;border-radius:3px;border-bottom:2px solid #CAAE47;text-align:center}
+    .logo i{display:block;font-style:normal;font-family:Montserrat,'Segoe UI',Arial,sans-serif;color:#fff;font-weight:400;letter-spacing:2px}
+    .droite{display:flex;flex-direction:column;align-items:flex-end}
+    .et{color:#B8901C} .et i{color:#DDD6C2;font-style:normal}
+    .qui{color:#4A5568} .qui strong{color:#1A2D4B}
+    p{margin:0;font-family:'Cormorant Garamond','Cormorant Infant',Georgia,serif;font-weight:500;color:#1A2D4B;display:-webkit-box;-webkit-box-orient:vertical;overflow:hidden}
+    .equipe{display:flex} .m{display:flex;flex-direction:column;align-items:center} .m img{border-radius:50%;object-fit:cover;border-style:solid;border-color:#CAAE47;background:#24395C} .m span{font-weight:600}
+    .sans{align-self:flex-start;border:1px dashed #CAAE47;border-radius:8px;color:#4A5568} .sans strong{color:#1A2D4B}
+    .vide{flex:1}
+    /* jusqu'à 3 avis : grand ; 4 à 6 : compact (6 avis tiennent dans la hauteur) */
+    .grand article{padding:18px 24px;gap:14px} .grand .logo{font-size:19px;padding:6px 12px 5px} .grand .logo i{font-size:7px}
+    .grand .et{font-size:23px;line-height:24px;letter-spacing:3px} .grand .qui{font-size:13.5px;line-height:17px} .grand .droite{gap:3px}
+    .grand p{font-size:23px;line-height:28px;-webkit-line-clamp:5} .grand .equipe{gap:6px} .grand .m{width:92px;gap:6px} .grand .m img{width:66px;height:66px;border-width:3px} .grand .m span{font-size:15px;line-height:18px}
+    .grand .sans{padding:9px 14px;font-size:13px;line-height:18px}
+    .compact article{padding:8px 22px;gap:5px} .compact .logo{font-size:14px;padding:4px 9px 3px} .compact .logo i{font-size:5.5px}
+    .compact .et{font-size:17px;line-height:18px;letter-spacing:2px} .compact .qui{font-size:11.5px;line-height:14px} .compact .droite{gap:2px}
+    .compact p{font-size:17px;line-height:20px;-webkit-line-clamp:2} .compact .equipe{gap:4px} .compact .m{width:62px;gap:3px} .compact .m img{width:38px;height:38px;border-width:2px} .compact .m span{font-size:11px;line-height:13px}
+    .compact .sans{padding:5px 10px;font-size:10.5px;line-height:14px}
+    .fermer{position:fixed;top:18px;right:22px;background:#fff;border:0;border-radius:10px;padding:9px 14px;font-weight:600;font-size:13px;cursor:pointer;color:#1A2D4B;font-family:inherit}
+    .legende{position:fixed;left:22px;bottom:18px;color:#C9D0DC;font-size:12px;max-width:340px;line-height:17px}
+  `;
+  function apercuDepot(etat) {
+    try {   // polices de la charte ; si Ulyss les refuse, Georgia prend le relais
+      if (!document.getElementById('ext-ulyss-polices-avis')) { const l = document.createElement('link'); l.id = 'ext-ulyss-polices-avis'; l.rel = 'stylesheet'; l.href = 'https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600&family=Montserrat:wght@400;500;600&display=swap'; document.head.append(l); }
+    } catch (e) {}
+    const hote = el('div');
+    document.body.append(hote);
+    const racine = hote.attachShadow({ mode: 'open' });
+    racine.append(el('style', {}, CSS_DEPOT));
+    const limite = plus(etat.aujourdhui, -(JOURS_AFFICHES - 1));
+    const montres = Object.values(etat.avis || {}).filter((a) => SUIVIES.includes(a.s) && !a.masque && a.date >= limite).slice(0, 6);
+    const bande = el('div', { class: 'bande ' + (montres.length <= 3 ? 'grand' : 'compact') },
+      el('header', {}, el('small', {}, 'AVIS CLIENTS GOOGLE'), el('b', {}, 'Les avis de la semaine')));
+    const images = [];
+    montres.forEach((a) => {
+      const f = TOUTES.find((x) => x.s === a.s) || { nom: a.s };
+      const mots = f.nom.replace(/\s*Déménagements?\s*/i, '').trim().toUpperCase() || f.nom.toUpperCase();
+      const d = a.dem ? new Date(a.dem + 'T12:00:00') : null;
+      const equipe = a.equipe || [];
+      bande.append(el('article', {},
+        el('div', { class: 'haut' },
+          el('div', { class: 'logo', title: f.nom }, el('i', {}, 'DÉMÉNAGEMENTS'), mots),
+          el('div', { class: 'droite' },
+            el('div', { class: 'et' }, '★'.repeat(a.note), el('i', {}, '★'.repeat(5 - a.note))),
+            el('div', { class: 'qui' }, el('strong', {}, nomCourt(a.auteur)), d ? ` · déménagement du ${d.getDate()} ${MOIS_COURTS[d.getMonth()]}` : ''))),
+        a.texte ? el('p', {}, '« ' + a.texte + ' »') : '',
+        equipe.length
+          ? el('div', { class: 'equipe' }, equipe.slice(0, 5).map((m) => { const img = el('img', { alt: '', src: SILHOUETTE }); images.push([img, m.id]); return el('div', { class: 'm' }, img, el('span', {}, m.prenom)); }))
+          : el('div', { class: 'sans' }, 'Équipe non identifiée.', el('br'), el('strong', {}, 'Vous reconnaissez ce déménagement ? Dites-le au bureau.'))));
+    });
+    if (!montres.length) bande.append(el('div', { class: 'vide' }));
+    const cadre = el('div', { class: 'cadre' }, bande);
+    const ajuster = () => { const k = Math.min(1, (window.innerHeight - 40) / 1080); bande.style.transform = `scale(${k})`; cadre.style.width = 480 * k + 'px'; cadre.style.height = 1080 * k + 'px'; };
+    const fermer = () => { window.removeEventListener('resize', ajuster); hote.remove(); };
+    const legende = el('div', { class: 'legende' }, montres.length ? `${montres.length} avis affiché${montres.length > 1 ? 's' : ''} sur la bande (480 × 1080, un quart d'écran). Photos : fiches collaborateur d'Ulyss.` : 'Aucun avis de moins de 7 jours : la bande reste vide.');
+    racine.append(el('div', { class: 'voile', onclick: (e) => { if (e.target === e.currentTarget) fermer(); } }, cadre, legende, el('button', { class: 'fermer', onclick: fermer }, 'Fermer ✕')));
+    ajuster(); window.addEventListener('resize', ajuster);
+    // photos lues une à une, après l'affichage
+    (async () => { for (const [img, id] of images) { if (!hote.isConnected) return; const src = await photoFiche(id); if (src) img.src = src; } })();
   }
 
   /** Entrée de la barre latérale, bâtie comme les modules d'Ulyss, sous « Taux de charge » (ou sous le premier module). */
