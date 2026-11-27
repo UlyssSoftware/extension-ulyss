@@ -12,6 +12,13 @@ CAPACITES.forEach(function (c, k) {
 CAPACITES.forEach(function (c, k) {
   TYPES.push({ id: 'k' + c, label: 'Kilomètres, véhicule ' + c + ' m³', unite: 'km', cas: 'veh', coef: true, pu: function (g, s) { return g.veh[k][1] * g.coef[s]; } });
 });
+// Camionnette (type « CAM » d'Ulyss, genre Vito : peu de volume utile, amène des hommes et du matériel ou tracte un monte-meuble
+// remorqué) — 27/11/2026. Tarif propre [jour, km] dans la grille ; valeurs de départ si la grille du poste ne l'a pas encore.
+var CAM_DEFAUT = [80, 0.5];
+TYPES.push(
+  { id: 'vcam', label: 'Camionnette (CAM)', unite: 'j', cas: 'veh', coef: true, pu: function (g, s) { return (g.cam || CAM_DEFAUT)[0] * g.coef[s]; } },
+  { id: 'kcam', label: 'Kilomètres, camionnette (CAM)', unite: 'km', cas: 'veh', coef: true, pu: function (g, s) { return (g.cam || CAM_DEFAUT)[1] * g.coef[s]; } }
+);
 TYPES.push(
   { id: 'mm', label: 'Monte-meubles', unite: 'j', cas: 'mm', pu: function (g) { return g.mm[0]; } },
   { id: 'mmkm', label: 'Kilomètres, monte-meubles', unite: 'km', cas: 'mm', pu: function (g) { return g.mm[1]; } },

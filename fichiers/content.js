@@ -11,6 +11,15 @@
   var SIGLES = ['B', 'N', 'H', 'TH'];
   var CHEVRON = '<svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path d="M5 9l7 7 7-7" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>';
   var SOCIETES = [[/fraisseix/i, 'fra'], [/limousins/i, 'ldl'], [/bardon/i, 'bd']];
+  // Société du dossier (27/11/2026) : d'abord la lettre du numéro (DGTDF… → F), qui ne trompe pas ; à défaut le nom de la structure.
+  var LETTRES_SOCIETE = { F: 'fra', L: 'ldl', B: 'bd' };
+  function societeDe(ev) {
+    var num = String((ev && ev.numero) || '');
+    if (!/^DGT[CD][A-Z]/.test(num)) { var z = document.querySelector('#contract_header_banner'); num = ((z ? z.textContent : '').match(/DGT[CD][A-Z]\d{4}-\d{3}/) || [num])[0]; }
+    var l = (num.match(/^DGT[CD]([A-Z])/) || [])[1];
+    if (LETTRES_SOCIETE[l]) return LETTRES_SOCIETE[l];
+    return (SOCIETES.filter(function (x) { return x[0].test((ev && ev.societe) || ''); })[0] || [0, 'fra'])[1];
+  }
   var TITRES_ULYSS = { 'Location de matériel': 'loc', 'Monte-meuble': 'mm', "Main d'oeuvre": 'mo', 'Frais de déplacement': 'dep', 'Véhicules': 'veh', "Fourniture d'emballage": 'emb', 'Panneaux de stationnement': 'pan' };
   var TVA_ULYSS = [[0.2, '20 %'], [0.1, '10 %'], [0.055, '5,5 %'], [0, '0 %']];   // vat_id Ulyss : 3, 2, 1, 4
   // Moyens proposés par « Ajouter un moyen à la phase », en plus de l'item personnalisé. Pour le moment : la manutention
@@ -406,7 +415,7 @@
     if (!tarifsPrets()) { demanderCode(ouvrirForfait); return; }
     fermer();
     var tous = etapesDe(document), evs = tous.filter(function (e) { return !/^\s*pause\s*$/i.test(e.nom); });
-    var soc = (SOCIETES.filter(function (x) { return x[0].test((evs[0] || {}).societe || ''); })[0] || [0, 'fra'])[1], g = GRILLES_REFERENCE[soc];
+    var soc = societeDe(evs[0]), g = GRILLES_REFERENCE[soc];
     // type : 'mm' location de monte-meuble · 'as' assistance. Chaque type garde son choix de durée et sa composition.
     forfait = { ev: evs.length === 1 ? 0 : -1, type: 'mm', f: { mm: '', as: '' }, sup: 0, as: { hommes: 1, vl: 0, pl: 0, mm: 0 }, ecrit: false, modifie: false };
     hote = document.createElement('div'); hote.id = 'gc-panneau';
@@ -872,14 +881,22 @@
     var parDefaut = function (incertain) {
       var v = {}; if (ev.vl) v[20] = ev.vl; if (ev.pl) v[50] = ev.pl; return { parCapacite: v, incertain: incertain };
     };
-    if (!ev.url || !(ev.vl + ev.pl)) return Promise.resolve(parDefaut(false));
+    // 27/11/2026 : le formulaire est lu pour TOUTE étape. Il donne le type de l'étape (« Déplacement » = activity « moving »), que
+    // data-events ne porte pas, et les véhicules que ses compteurs ignorent (CAM, RQ…).
+    var trajet = /d[ée]plac|trajet|>/i.test(ev.nom || '');   // à défaut de formulaire lu : d'après le nom (« 87>33 »)
+    if (!ev.url) { var d0 = parDefaut(false); d0.deplacement = trajet; return Promise.resolve(d0); }
     // « <url de l'événement>/edit » renvoie le formulaire de cet événement, et de lui seul (lecture, aucun enregistrement).
     return fetch(ev.url + '/edit', { credentials: 'same-origin', headers: { Accept: 'text/vnd.turbo-stream.html, text/html' } }).then(function (r) { return r.ok ? r.text() : Promise.reject(); }).then(function (t) {
       var d = new DOMParser().parseFromString(t.replace(/<\/?template>/g, ''), 'text/html'), v = {}, n = 0, sansRef = [], rq = 0, pl50 = 0;
+      var act = [].slice.call(d.querySelectorAll('select[name$="[activity]"]')).filter(function (s) { return s.form && (s.form.getAttribute('action') || '').indexOf('/' + ev.item) >= 0; })[0];
+      var deplacement = act ? act.value === 'moving' : trajet;
+      var rendre = function (o) { o.deplacement = deplacement; return o; };
       [].slice.call(d.querySelectorAll('select[name*="schedule_vehicules_attributes"][name*="vehicule_type_id"]')).forEach(function (s) {
         if (!s.form || (s.form.getAttribute('action') || '').indexOf('/' + ev.item) < 0) return;
         var type = s.selectedOptions[0] ? s.selectedOptions[0].textContent : '';
         if (/monte/i.test(type)) return;
+        // Camionnette : type « CAM » d'Ulyss, tarif propre (27/11/2026).
+        if (/^\s*CAM\s*$/i.test(type)) { v.cam = (v.cam || 0) + 1; n++; return; }
         // Règle du 22/11/2026 : on chiffre d'après le TYPE de véhicule posé dans la pré-planification, pas d'après le volume
         // saisi sur l'événement. Le tarif est celui du volume de référence du type dans Ulyss (Véhicule léger 20 m³, Poids lourd 50 m³…).
         var ref = nombre(s.selectedOptions[0] && s.selectedOptions[0].getAttribute('data-volume'));
@@ -893,9 +910,10 @@
       var ens = Math.min(rq, pl50);
       if (ens) { v[50] -= 2 * ens; if (!v[50]) delete v[50]; v[100] = (v[100] || 0) + ens; }
       if (rq > ens) sansRef.push('remorque sans poids lourd');
-      if (sansRef.length) return { parCapacite: v, incertain: false, note: sansRef.join(', ') + ' : tarif à vérifier' };
-      return n > 0 ? { parCapacite: v, incertain: false } : parDefaut(true);
-    }).catch(function () { return parDefaut(true); });
+      if (sansRef.length) return rendre({ parCapacite: v, incertain: false, note: sansRef.join(', ') + ' : tarif à vérifier' });
+      // aucun véhicule dans le formulaire : rien à vérifier si les compteurs n'en annonçaient pas non plus
+      return rendre(n > 0 ? { parCapacite: v, incertain: false } : parDefaut(ev.vl + ev.pl > 0));
+    }).catch(function () { var o = parDefaut(ev.vl + ev.pl > 0); o.deplacement = trajet; return o; });
   }
   // Une étape = un jour et un nom (« Jour 1 · Chargement »), même si Ulyss la découpe en matin et après-midi.
   // Dans une étape, les moyens identiques (même type, même nombre) cumulent leurs durées.
@@ -914,7 +932,7 @@
       Object.keys(vehs[i].parCapacite).forEach(function (c) {
         var nb = vehs[i].parCapacite[c];
         ajoute(g, 'v' + c, nb, j, vehs[i].incertain ? 'type de véhicule non lu, à vérifier' : (vehs[i].note || ''));
-        maxi[c] = Math.max(maxi[c] || 0, nb);
+        if (vehs[i].deplacement) maxi[c] = Math.max(maxi[c] || 0, nb);   // seuls les véhicules qui font la route comptent des kilomètres
       });
       if (e.mm) ajoute(g, 'mm', e.mm, j);
     });
@@ -922,6 +940,8 @@
     groupes.forEach(function (g) { g.detail = g.plages.join(' et ') + ' · ' + fr(arrondi(g.heures)) + ' h' + (g.prepa ? ' dont ' + fr(arrondi(g.prepa)) + ' h de préparation et d\'approche' : ''); });
     if (!avecDossier) return { groupes: groupes, lignes: lignes };   // volume, distance et valeur déclarée ne se comptent qu'une fois
     var d = { id: groupes.length + 1, origine: 'prep', titre: 'Postes du dossier', detail: 'volume, distance, valeur déclarée et panneaux lus sur le dossier' };
+    // Règle de Guillaume du 27/11/2026 : des kilomètres seulement pour les véhicules présents dans une étape « Déplacement »
+    // (ceux qui font la route). Sans étape de déplacement, aucun kilomètre n'est compté.
     if (bandeau.km > 0) Object.keys(maxi).forEach(function (c) { ajoute(d, 'k' + c, maxi[c], bandeau.km * 2); });
     if (bandeau.volume > 0) ajoute(d, 'loc', 1, bandeau.volume);
     if (bandeau.volume > 0) ajoute(d, 'emb', 1, bandeau.volume);   // fourniture d'emballage : au m³, comme la location de matériel
@@ -995,17 +1015,18 @@
     Promise.all(liens.map(function (ph) { return lireEvenementsPhase(ph, seule); })).then(function (parPhase) {
       var premier = parPhase.reduce(function (a, evs) { return a || evs[0]; }, null);
       if (!premier) { $('sous').textContent = 'Aucun moyen trouvé dans la pré-planification de ce dossier.'; return; }
-      var societe = (SOCIETES.filter(function (x) { return x[0].test(premier.societe); })[0] || [0, 'fra'])[1];
+      var societe = societeDe(premier);
       return Promise.all([Promise.all(parPhase.map(function (evs) { return Promise.all(evs.map(lireVehicules)); })), memoire('grille-' + societe), memoire('dossier-' + premier.numero), lirePanneauxDossier(premier.url)]).then(function (r) {
         bandeau.panneaux = r[3];
-        etat = { societe: societe, numero: premier.numero, grille: GRILLES_REFERENCE[r[1]] ? r[1] : societe, saison: 1, suivant: 1000, phase: 0, unite: 'h' };   // durées affichées en heures et minutes par défaut
+        etat = { societe: societe, numero: premier.numero, grille: societe, saison: 1, suivant: 1000, phase: 0, unite: 'h' };   // durées affichées en heures et minutes par défaut
         etat.phases = liens.map(function (ph, i) {
           var depart = construireLignes(parPhase[i], r[0][i], bandeau, i === 0), c = JSON.parse(JSON.stringify(depart));
           return { id: ph.id, titre: ph.titre, illisible: !!ph.illisible, depart: depart, lignes: c.lignes, groupes: c.groupes, forces: {}, remise: { mode: 'R0', rn: 10, x: 0, xType: 'pct', motif: '' } };
         });
         var garde = r[2];
         if (garde && garde.phases) {
-          if (GRILLES_REFERENCE[garde.grille]) etat.grille = garde.grille;
+          // 27/11/2026 (Guillaume) : le panneau s'ouvre toujours sur la grille de la société du dossier ; ni la dernière grille
+          // choisie pour cette société, ni celle gardée avec le dossier ne sont reprises à l'ouverture.
           if (garde.saison >= 0 && garde.saison < 4) etat.saison = garde.saison;
           if (garde.unite === 'h' || garde.unite === 'j') etat.unite = garde.unite;
           etat.phases.forEach(function (ph, i) {
