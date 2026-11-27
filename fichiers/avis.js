@@ -1,7 +1,7 @@
 /*
  * Extension Ulyss — module « Avis clients » (26/11/2026, demande de Guillaume).
  *  1. Relevé du matin : le premier poste connecté à Ulyss dans la journée fait relever par l'extension les avis Google de
- *     moins de 7 jours des trois sociétés de déménagement (onglet Google Maps ouvert puis refermé par l'extension, voir
+ *     moins de 7 jours des sociétés suivies (Fraisseix seule depuis le 27/11/2026) (onglet Google Maps ouvert puis refermé par l'extension, voir
  *     maps-avis.js et fond.js), puis rapproche chaque nouvel avis d'un dossier d'Ulyss et retrouve l'équipe au Planning.
  *  2. Module : entrée « Avis clients » de la barre latérale. Liste des avis, niveau du rapprochement, et modération :
  *     masquer / réafficher, rattacher à un dossier (l'équipe est relue au Planning), corriger l'équipe.
@@ -17,11 +17,14 @@
   const JOURS_AFFICHES = 7;
   const FENETRE_JOURS = 75;          // le déménagement s'est terminé au plus 75 jours avant l'avis
   // Fiches Google (identifiants relevés sur Google Maps le 26/11/2026). FLS n'est pas suivi.
-  const FICHES = [
+  // 27/11/2026 (Guillaume) : Fraisseix seulement pour le moment. LDL et Bardon sont prêtes : les remettre dans SUIVIES.
+  const SUIVIES = ['F'];
+  const TOUTES = [
     { s: 'F', nom: 'Fraisseix Déménagements', couleur: '#1A2D4B', url: 'https://www.google.com/maps/place/Fraisseix+D%C3%A9m%C3%A9nagements/data=!4m2!3m1!1s0x47f9337a6af5a6bf:0xfe734386eca4b58a' },
     { s: 'L', nom: 'Les Déménageurs Limousins', couleur: '#2E7D5B', url: 'https://www.google.com/maps/place/Les+D%C3%A9m%C3%A9nageurs+Limousins/data=!4m2!3m1!1s0x47fecb819b7398b1:0x420bee76346672b7' },
     { s: 'B', nom: 'Bardon Déménagements', couleur: '#B4532A', url: 'https://www.google.com/maps/place/Bardon+D%C3%A9m%C3%A9nagements/data=!4m2!3m1!1s0x47f9358a7a91f44f:0xebc79946619759ca' },
   ];
+  const FICHES = TOUTES.filter((f) => SUIVIES.includes(f.s));
   const ETATS_FAITS = /^(réalisé|lv ok|planning ok|clôturé)$/i;
   const NIVEAUX = { certain: 'Certain', probable: 'Probable', manuel: 'Rattaché à la main', non: 'Non trouvé', '': 'À rapprocher' };
 
@@ -197,7 +200,7 @@
         if (r) etat = await serveur({ action: 'rapprocher', poste, id, ...r }, true);   // lecture d'Ulyss en échec : on réessaiera au prochain relevé
       }
       // Tout n'est « fait » pour la journée que si les trois fiches ont été lues.
-      if (Object.values(fiches).every((f) => f.ok)) etat = await serveur({ action: 'terminer', poste }, true);
+      if (FICHES.every((f) => fiches[f.s] && fiches[f.s].ok)) etat = await serveur({ action: 'terminer', poste }, true);
       return etat;
     })().finally(() => { releveEnCours = null; });
     return releveEnCours;
@@ -292,7 +295,7 @@
         return el('span', { class: 'fiche', title: e ? (e.ok ? 'Lu le ' + new Date(e.quand * 1000).toLocaleString('fr-FR') : 'Échec : ' + e.motif) : 'Jamais relevé' }, el('span', { class: 'pt' + (e ? (e.ok ? ' ok' : ' ko') : '') }), f.nom);
       }));
       const limite = plus(etat.aujourdhui, -(JOURS_AFFICHES - 1));
-      const lignes = Object.entries(etat.avis || {});
+      const lignes = Object.entries(etat.avis || {}).filter(([, a]) => SUIVIES.includes(a.s));
       const recents = lignes.filter(([, a]) => a.date >= limite), anciens = lignes.length - recents.length;
       bTout.textContent = anciens ? (tout ? 'Masquer les avis de plus de 7 jours' : `Voir aussi les ${anciens} avis de plus de 7 jours (sortis de l'affichage)`) : '';
       const montres = tout ? lignes : recents;
