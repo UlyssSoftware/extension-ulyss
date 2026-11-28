@@ -22,13 +22,19 @@
     ['chiffrage', 'Chiffrage', 'Panneau de la grille, forfaits et contrôle des moyens dans la pré-planification'],
     ['rdv', 'Confirmation de rendez-vous', 'Bouton et e-mail de confirmation du rendez-vous'],
     ['rappel', 'Lettre de voiture et rappel', 'Bouton « Lettre de voiture » de la pré-planification et e-mail de rappel au client'],
+    ['prix', 'Niveau de prix', 'Dans la liste des dossiers : mode de chiffrage et écart par rapport à la grille'],
+    ['commercial', 'Activité commerciale', 'Écran de suivi commercial et relevé quotidien des dossiers'],
     ['demande-avis', 'Demande d\'avis', 'Bouton « Demander un avis » de l\'écran Devis'],
     ['avis', 'Avis clients', 'Module de la barre latérale et relevé des avis Google le matin'],
     ['charge', 'Taux de charge', 'Module de la barre latérale, bouton du Planning et lecture du Planning le matin'],
     ['deplacement', 'Déplacement', 'Coche de la phase et liseré rouge au Planning'],
     ['logos', 'Logos', 'Logo de la barre latérale et logo en haut des pages'],
   ];
-  const lire = () => { try { const m = JSON.parse(localStorage.getItem(CLE) || 'null'); return m && typeof m === 'object' ? { coupes: m.coupes || [], poste: m.poste || [], exempt: m.exempt || [], quand: m.quand || 0 } : { coupes: [], poste: [], exempt: [], quand: 0 }; } catch (e) { return { coupes: [], poste: [], exempt: [], quand: 0 }; } };
+  // Modules RÉSERVÉS (28/11/2026) : coupés pour tout le monde d'office, sur tous les postes et sans passer par le serveur.
+  // Ils ne s'allument que poste par poste, avec le code d'accès (« Sur ce poste »). « Activité commerciale » : Guillaume seul pour le moment.
+  const RESERVES = ['commercial'];
+  const avecReserves = (c) => c.concat(RESERVES.filter((n) => c.indexOf(n) < 0));
+  const lire = () => { try { const m = JSON.parse(localStorage.getItem(CLE) || 'null'); return m && typeof m === 'object' ? { coupes: avecReserves(m.coupes || []), poste: m.poste || [], exempt: m.exempt || [], quand: m.quand || 0 } : { coupes: avecReserves([]), poste: [], exempt: [], quand: 0 }; } catch (e) { return { coupes: avecReserves([]), poste: [], exempt: [], quand: 0 }; } };
   const garder = (m) => { try { localStorage.setItem(CLE, JSON.stringify(m)); } catch (e) {} };
   // État au chargement de la page : c'est lui qui vaut jusqu'au rechargement (pas de bouton à moitié retiré).
   const depart = lire();
@@ -161,6 +167,7 @@
           if (preuve) reglerPourTous(nom, voulu); else { attente = [nom, voulu]; demanderCode(); }
         } });
         tous.checked = !coupe;
+        if (RESERVES.indexOf(nom) >= 0) { tous.disabled = true; tous.title = 'Module réservé pour le moment : il s\'allume poste par poste, avec le code d\'accès (colonne « Sur ce poste »).'; }
         const exempte = coupe && m.exempt.indexOf(nom) >= 0;
         const poste = el('input', { type: 'checkbox', class: 'inter' + (exempte ? ' exempt' : ''), title: exempte ? 'Coupé pour tout le monde, gardé actif sur ce poste (code d\'accès)' : coupe ? 'Coupé pour tout le monde. Le rallumer sur ce poste seulement demande le code d\'accès.' : 'Activer ou désactiver sur ce poste seulement', onchange: () => {
           if (coupe) {
@@ -173,7 +180,7 @@
           change = true; dire('Enregistré pour ce poste. La page se recharge à la fermeture.', 'ok');
         } });
         poste.checked = coupe ? exempte : !perso;
-        return el('div', { class: 'grille ligne' }, el('div', {}, el('div', { class: 'nom' }, titre), el('div', { class: 'desc' }, desc + (exempte ? ' — coupé pour les autres, actif ici' : coupe ? ' — coupé pour tout le monde' : ''))), el('div', { class: 'c' }, tous), el('div', { class: 'c' }, poste));
+        return el('div', { class: 'grille ligne' }, el('div', {}, el('div', { class: 'nom' }, titre), el('div', { class: 'desc' }, desc + (exempte ? ' — coupé pour les autres, actif ici' : RESERVES.indexOf(nom) >= 0 ? ' — réservé : s\'allume sur ce poste avec le code d\'accès' : coupe ? ' — coupé pour tout le monde' : ''))), el('div', { class: 'c' }, tous), el('div', { class: 'c' }, poste));
       }));
     }
     const version = el('span', { class: 'version' }, EXT ? 'Version ' + EXT.getManifest().version : '');

@@ -60,9 +60,33 @@
     memoire('dossier-' + etat.numero, o);
   }
 
+  // ---------- Niveau de prix (28/11/2026) : au report dans le devis, on retient comment la phase a été chiffrée ----------
+  // { <id phase>: { m: 'g' (grille) | 'f' (forfait), v: montant HT de référence } } → serveur prix/ (numéro de dossier, aucun nom).
+  // L'envoi part par le service worker : il aboutit même si « Valider » recharge la page aussitôt.
+  function noterPrix(numero, phases, saison) {
+    try {
+      if (!EXT || !/^DGT[CD][A-Z]\d{4}-\d{3}/.test(String(numero || '')) || !Object.keys(phases).length) return;
+      var d = { instance: location.hostname, action: 'noter', ref: numero, phases: phases };
+      if (typeof saison === 'number') d.saison = saison;
+      EXT.sendMessage({ type: 'gc-rdv', cible: 'prix', donnees: d }, function () { void chrome.runtime.lastError; });
+    } catch (e) {}
+  }
+  function numeroDeLaPage() {
+    var z = document.querySelector('#contract_header_banner');
+    return ((z ? z.textContent : '').match(/DGT[CD][A-Z]\d{4}-\d{3}(?:_\d+)?/) || [''])[0];
+  }
+
   // ---------- Bouton dans la page de pré-planification ----------
   function poserBouton() {
     var ancre = document.querySelector('a#new_proposal-link');
+    // 28/11/2026 (Guillaume) : le bouton de la grille REMPLACE « Estimation », pour que tout devis passe par la grille ou par
+    // un forfait. Le bouton d'Ulyss reste dans la page, invisible : le panneau l'actionne pour reporter ses montants.
+    // « Estimation » reste visible sur un poste sans l'extension, si le module « Chiffrage » est coupé dans les réglages, et
+    // tant que le code d'accès des tarifs n'a pas été saisi sur le poste (sans lui, ni grille ni forfait : on ne bloque personne).
+    if (ancre && document.getElementById('gc-bouton') && tarifsPrets(true) && !ancre.getAttribute('data-gc-masque')) {
+      ancre.setAttribute('data-gc-masque', '1'); ancre.setAttribute('aria-hidden', 'true'); ancre.tabIndex = -1;
+      ancre.style.cssText += ';position:absolute!important;width:1px!important;height:1px!important;padding:0!important;margin:0!important;border:0!important;overflow:hidden!important;clip-path:inset(50%)!important;opacity:0!important;pointer-events:none!important';
+    }
     if (!(CHEMIN.test(location.pathname) || window.__chiffrageApercu) || !ancre || document.getElementById('gc-bouton')) return;
     // Deux boutons côte à côte : « Grille » (chiffrage d'après la pré-planification) et « Forfait » (demande du 22/11/2026).
     var b = document.createElement('a');
@@ -88,7 +112,7 @@
   // les déchiffre avec la clé gardée sur le poste ; sans elle, « Grille » et « Forfait » demandent le code d'accès.
   function tarifsPrets(sansForfaits) { return typeof GRILLES_REFERENCE !== 'undefined' && !!GRILLES_REFERENCE && (!!sansForfaits || (typeof FORFAITS !== 'undefined' && !!FORFAITS)); }
   function poserTarifs(t) { if (t && t.grilles && t.forfaits) { window.GRILLES_REFERENCE = t.grilles; window.FORFAITS = t.forfaits; } return tarifsPrets(); }
-  if (EXT && !tarifsPrets()) demander({ type: 'gc-tarifs' }).then(function (r) { if (r && r.ok) poserTarifs(r.tarifs); });
+  if (EXT && !tarifsPrets()) demander({ type: 'gc-tarifs' }).then(function (r) { if (r && r.ok && poserTarifs(r.tarifs)) poserBouton(); });
   window.__gcDemanderCode = function (ensuite) { demanderCode(ensuite); };   // utilisé par rdv.js
   function demanderCode(ensuite) {
     if (!EXT) { afficherMessage({ texte: 'Tarifs indisponibles.', erreur: true }); return; }
@@ -570,7 +594,11 @@
       });
       var detail = [['mm', 'monte-meuble'], ['mo', 'main-d\'œuvre'], ['veh', 'véhicules'], ['pan', 'panneaux']].filter(function (x) { return parCas[x[0]] > 0; }).map(function (x) { return x[1] + ' ' + euros(parCas[x[0]]); }).join(', ');
       bandeauPage(form, 'Forfait reporté : ' + euros(total) + ' HT' + (detail ? ' (' + detail + ')' : '') + ', les autres postes à zéro. Vérifiez, puis cliquez sur Valider.' + (total > 0 ? '' : ' Attention : aucun prix n\'a été saisi dans le panneau.'), !(total > 0));
-      form.addEventListener('submit', function () { if (!window.__chiffrageApercu) setTimeout(function () { location.reload(); }, 2500); });
+      form.addEventListener('submit', function () {
+        var ph = phaseOuverte(), refs = {};
+        if (ph) { refs[ph] = { m: 'f', v: Math.round(total * 100) / 100 }; noterPrix(numeroDeLaPage(), refs); }
+        if (!window.__chiffrageApercu) setTimeout(function () { location.reload(); }, 2500);
+      });
     });
   }
   // ---------- Moyens par étape, au-dessus de la pré-planification (demande du 23/11/2026) ----------
@@ -1436,6 +1464,10 @@
       bandeauPage(form, texte, false);
       form.addEventListener('submit', function () {
         phaseR.reporte = { quand: Date.now(), net: res.ht, postes: apres }; phaseR.perime = false; sauver();
+        // Prix de référence de chaque phase reportée : ce que calcule la grille, sans forçage ni remise, items compris.
+        var refs = {};
+        etat.phases.forEach(function (ph) { var idP = ph.id || (ph === phaseR ? phaseIdR : ''); if (!ph.reporte || !idP) return; var r = chiffrer(g, etat.saison, ph.lignes, {}, { mode: 'R0' }); refs[idP] = { m: 'g', v: Math.round((r.brut + r.libres) * 100) / 100 }; });
+        noterPrix(etat.numero, refs, etat.saison);
         // « Valider » recharge la page d'Ulyss : ce qu'il reste à faire est noté dans l'onglet et repris à la page suivante.
         var reste = etat.phases.filter(function (ph) { return !ph.reporte; });
         ecrireAttente({ quand: Date.now(), dossier: dossierR, phase: phaseIdR, lignes: complements, avant: devisAvant, envoyees: 0, titre: phaseR.titre, nb: etat.phases.length, reste: reste.length, suite: reste[0] ? { id: reste[0].id, titre: reste[0].titre } : null });
