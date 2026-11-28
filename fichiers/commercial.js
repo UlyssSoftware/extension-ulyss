@@ -357,7 +357,7 @@
     r.addEventListener('click', (e) => { e.preventDefault(); e.stopPropagation(); if (location.hash !== ANCRE) history.pushState(history.state, '', location.pathname + location.search + ANCRE); suivreAdresse(); });
     liens[0].insertAdjacentElement('afterend', r);
     // Toute autre entrée de la barre latérale referme l'écran, même si elle mène à la page déjà affichée dessous.
-    zone.addEventListener('click', (e) => { const a = e.target.closest && e.target.closest('a.sidebar-link'); if (a && a.id !== ID_ENTREE && !/^ext-ulyss-/.test(a.id) && ecran) { history.replaceState(history.state, '', location.pathname + location.search); demonter(); } }, true);
+    zone.addEventListener('click', (e) => { const a = e.target.closest && e.target.closest('a.sidebar-link'); if (a && a.id !== ID_ENTREE && ecran) { if (!/^ext-ulyss-/.test(a.id)) history.replaceState(history.state, '', location.pathname + location.search); demonter(); } }, true);
   }
   if (window.__extUlyssCommercialEssai) Object.assign(window.__extUlyssCommercialEssai, { calculer, affaires, periode, lignesDe, releveDuJour });
   const poser = () => { insererEntree(); suivreAdresse(); };

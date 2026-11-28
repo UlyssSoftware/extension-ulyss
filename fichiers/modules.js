@@ -23,6 +23,7 @@
     ['rdv', 'Confirmation de rendez-vous', 'Bouton et e-mail de confirmation du rendez-vous'],
     ['rappel', 'Lettre de voiture et rappel', 'Bouton « Lettre de voiture » de la pré-planification et e-mail de rappel au client'],
     ['prix', 'Niveau de prix', 'Dans la liste des dossiers : mode de chiffrage et écart par rapport à la grille'],
+    ['dashboard2', 'Dashboard V2', 'Le tableau de bord d\'Ulyss remis en forme, dans un écran à part (le tableau de bord d\'origine reste en place)'],
     ['commercial', 'Activité commerciale', 'Écran de suivi commercial et relevé quotidien des dossiers'],
     ['demande-avis', 'Demande d\'avis', 'Bouton « Demander un avis » de l\'écran Devis'],
     ['avis', 'Avis clients', 'Module de la barre latérale et relevé des avis Google le matin'],
@@ -32,7 +33,7 @@
   ];
   // Modules RÉSERVÉS (28/11/2026) : coupés pour tout le monde d'office, sur tous les postes et sans passer par le serveur.
   // Ils ne s'allument que poste par poste, avec le code d'accès (« Sur ce poste »). « Activité commerciale » : Guillaume seul pour le moment.
-  const RESERVES = ['commercial'];
+  const RESERVES = ['commercial', 'dashboard2'];
   const avecReserves = (c) => c.concat(RESERVES.filter((n) => c.indexOf(n) < 0));
   const lire = () => { try { const m = JSON.parse(localStorage.getItem(CLE) || 'null'); return m && typeof m === 'object' ? { coupes: avecReserves(m.coupes || []), poste: m.poste || [], exempt: m.exempt || [], quand: m.quand || 0 } : { coupes: avecReserves([]), poste: [], exempt: [], quand: 0 }; } catch (e) { return { coupes: avecReserves([]), poste: [], exempt: [], quand: 0 }; } };
   const garder = (m) => { try { localStorage.setItem(CLE, JSON.stringify(m)); } catch (e) {} };

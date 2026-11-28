@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Extension Ulyss",
-  "version": "1.8.32",
+  "version": "1.8.33",
   "description": "Outils Limo Dem dans Ulyss : chiffrage par la grille ou par forfait, niveau de prix dans la liste des dossiers, confirmation de rendez-vous, rappel du déménagement et demande d'avis par e-mail, taux de charge du Planning, module Avis clients, activité commerciale.",
   "permissions": [
     "storage",
@@ -26,7 +26,8 @@
         "demande-avis.js",
         "deplacement.js",
         "prix.js",
-        "commercial.js"
+        "commercial.js",
+        "dashboard2.js"
       ],
       "run_at": "document_idle"
     },
