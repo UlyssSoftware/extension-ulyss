@@ -1,7 +1,10 @@
 /*
  * Extension Ulyss — bouton « Demander un avis » (26/11/2026, demande de Guillaume ; modèle de mail fourni par lui).
- * Onglet Pré-planification d'un dossier dont le déménagement est terminé : état « Réalisé » ou « Clôturé », ou bien
- * « LV Ok » / « Planning Ok » une fois le dernier jour passé. Sociétés dont le modèle existe (Fraisseix).
+ * 28/11/2026 (Guillaume) : le bouton quitte l'écran Pré-planification pour l'écran DEVIS du dossier (/contracts/<id>/proposals),
+ * à la suite de « Télécharger » et « Envoyer ». Il n'apparaît que si le déménagement est terminé : état « Réalisé » ou
+ * « Clôturé », ou bien « LV Ok » / « Planning Ok » une fois le dernier jour passé. Sociétés dont le modèle existe (Fraisseix).
+ * L'état est lu sur le badge d'état de l'en-tête (.badge.embed / contract-…) et lui seul : les jalons de l'en-tête sont aussi
+ * des .badge, et « Clôturé » y figure toujours (défaut de la 1.8.22 : le bouton s'affichait sur tous les dossiers Fraisseix).
  * Reprend le fonctionnement du rappel du déménagement (rappel.js) : client lu dans sa fiche, dates lues dans l'en-tête de
  * la phase, équipe et photos lues au Planning (jour 1), aperçu obligatoire avant l'envoi, envoi par le serveur
  * ulyss-software.com/extension-ulyss/demande-avis/avis.php (message gc-rdv, cible « demande-avis »). Ulyss n'est que lu.
@@ -11,7 +14,7 @@
   const ID_BOUTON = 'limodem-bouton-avis';
   const ROLES = ["Chef d'équipe", 'Déménageur', 'Conducteur'];
   const HOTES = /^(fraisseix\.staging\.unova\.fr|ulyss\.fr)$/;
-  const CHEMIN = /^\/contracts\/(\d+)\/phases(?:\/(\d+))?/;
+  const CHEMIN = /^\/contracts\/(\d+)\/proposals\/?$/;   // écran Devis du dossier
   const SOCIETES = ['F'];   // ajouter B, L quand leur modèle de demande d'avis existera
   const CIVILITES = { male: 'Monsieur', female: 'Madame', both: 'Madame et Monsieur', other: '' };
   const EXT = (() => { try { return typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.id ? chrome.runtime : null; } catch (e) { return null; } })();
@@ -29,8 +32,17 @@
     const mois = m && MOIS_ULYSS[m[2]];
     return mois ? `${m[3]}-${String(mois).padStart(2, '0')}-${m[1].padStart(2, '0')}` : '';
   }
-  function datesDePhase() {
-    const titre = document.getElementById('phase-title');
+  /** Dates de la phase du dossier, lues sur sa page Pré-planification (une lecture par dossier, gardée le temps de la page). */
+  const datesLues = new Map();
+  function datesDuDossier(id) {
+    if (!datesLues.has(id)) {
+      datesLues.set(id, fetch(`/contracts/${id}/phases`, { credentials: 'same-origin' }).then((r) => (r.ok ? r.text() : ''))
+        .then((h) => datesDePhase(new DOMParser().parseFromString(h, 'text/html'))).catch(() => null));
+    }
+    return datesLues.get(id);
+  }
+  function datesDePhase(doc) {
+    const titre = (doc || document).getElementById('phase-title');
     const bloc = titre && titre.parentElement ? titre.parentElement.querySelector('.ml-2') : null;
     const m = bloc ? bloc.textContent.replace(/\s+/g, ' ').match(/(\d{1,2} [^\d-]+? \d{4})\s*-\s*(\d{1,2} [^\d-]+? \d{4})/) : null;
     if (!m) return null;
@@ -45,14 +57,20 @@
     }
     return '';
   }
-  /** Le déménagement est-il terminé ? D'après le badge d'état de l'en-tête et les dates de la phase. */
-  function demenagementTermine() {
+  /** État du dossier : le badge d'état de l'en-tête, pas les jalons (eux aussi des .badge). En minuscules, '' si illisible. */
+  function etatDossier() {
     const bandeau = document.querySelector('#contract_header_banner');
-    if (!bandeau) return !!window.__extUlyssRdvEssai;   // page d'essai sans en-tête
-    const etats = [...bandeau.querySelectorAll('.badge')].map((b) => b.textContent.trim().toLowerCase());
-    if (etats.some((e) => /^(réalisé|clôturé)$/.test(e))) return true;
-    const p = datesDePhase();
-    return etats.some((e) => /^(lv ok|planning ok)$/.test(e)) && !!p && p.fin < aujourdhui();
+    const b = bandeau && (bandeau.querySelector('.badge.embed') || bandeau.querySelector('.badge[class*="contract-"]'));
+    return b ? b.textContent.replace(/\s+/g, ' ').trim().toLowerCase() : '';
+  }
+  /** Le déménagement est-il terminé ? Promesse de vrai / faux. */
+  async function demenagementTermine(id) {
+    if (!document.querySelector('#contract_header_banner')) return !!window.__extUlyssRdvEssai;   // page d'essai sans en-tête
+    const etat = etatDossier();
+    if (/^(réalisé|clôturé)$/.test(etat)) return true;
+    if (!/^(lv ok|planning ok)$/.test(etat)) return false;
+    const p = await datesDuDossier(id);
+    return !!p && p.fin < aujourdhui();
   }
   async function lireClient() {
     const reference = numeroDossier();
@@ -159,8 +177,9 @@
 
   async function ouvrirFenetre() {
     const client = await lireClient();
-    const periode = datesDePhase();
-    const [, dossierId, phaseId] = location.pathname.match(CHEMIN) || [];
+    const [, dossierId] = location.pathname.match(CHEMIN) || [];
+    const periode = await datesDuDossier(dossierId);
+    const phaseId = '';   // écran Devis : la carte du Planning est reconnue par le dossier
     const hote = el('div');
     document.body.append(hote);
     const racine = hote.attachShadow({ mode: 'open' });
@@ -296,28 +315,27 @@
     })();
   }
 
-  /** Bouton à droite de « Lettre de voiture » s'il est là, sinon à côté du menu « Affichage ». */
+  /** Bouton de l'écran Devis, à la suite de « Télécharger » et « Envoyer » (rangée div.flex.flex-row.gap-4 de #tab-content). */
+  const verdicts = new Map();   // dossier → promesse « déménagement terminé » (une seule lecture des dates par dossier)
+  const voisinDevis = () => document.querySelector('#tab-content a[href*="address_send_by_mail"]') || document.querySelector('#tab-content a[href*="/download"]');
   function insererBouton() {
     if (!HOTES.test(location.hostname) && !window.__extUlyssRdvEssai) return;
-    if (!CHEMIN.test(location.pathname)) return;
-    if (document.getElementById(ID_BOUTON)) return;
-    if (!document.querySelector('[data-events]')) return;   // pas sur l'onglet Pré-planification
+    const m = location.pathname.match(CHEMIN);
+    const deja = document.getElementById(ID_BOUTON);
+    if (!m) { if (deja) deja.remove(); return; }
+    if (deja || !voisinDevis()) return;   // déjà posé, ou pas encore de devis affiché
     if (SOCIETES.indexOf((numeroDossier().match(/^DGT[CD]([A-Z])/) || [])[1]) < 0) return;
-    if (!demenagementTermine()) return;
-    const affichage = [...document.querySelectorAll('a.btn, button')].find((b) => b.textContent.trim().toLowerCase() === 'affichage');
-    const bouton = document.createElement('button');
-    bouton.id = ID_BOUTON; bouton.type = 'button'; bouton.textContent = 'Demander un avis';
-    bouton.title = 'Envoyer au client la demande d\'avis Google, avec son équipe (Extension Ulyss)';
-    const voisin = document.getElementById('limodem-bouton-rappel');
-    if (affichage) {
-      bouton.className = affichage.className;
-      bouton.style.marginLeft = '8px';
-      (voisin || affichage.closest('.dropdown') || affichage).insertAdjacentElement('afterend', bouton);
-    } else {
-      bouton.style.cssText = 'margin:8px 0;padding:8px 14px;background:#1A2D4B;color:#fff;border:0;border-radius:4px;cursor:pointer;font-weight:600';
-      document.querySelector('[data-events]').insertAdjacentElement('beforebegin', bouton);
-    }
-    bouton.addEventListener('click', (e) => { e.preventDefault(); ouvrirFenetre(); });
+    if (!verdicts.has(m[1])) verdicts.set(m[1], demenagementTermine(m[1]).catch(() => false));
+    verdicts.get(m[1]).then((oui) => {
+      const voisin = voisinDevis();
+      if (!oui || !voisin || document.getElementById(ID_BOUTON) || (location.pathname.match(CHEMIN) || [])[1] !== m[1]) return;
+      const bouton = document.createElement('button');
+      bouton.id = ID_BOUTON; bouton.type = 'button'; bouton.textContent = 'Demander un avis';
+      bouton.title = 'Envoyer au client la demande d\'avis Google, avec son équipe (Extension Ulyss)';
+      bouton.className = 'btn';
+      voisin.parentElement.append(bouton);
+      bouton.addEventListener('click', (e) => { e.preventDefault(); ouvrirFenetre(); });
+    });
   }
   document.addEventListener('turbo:load', insererBouton);
   document.addEventListener('turbo:frame-load', insererBouton);
