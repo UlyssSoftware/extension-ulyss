@@ -146,6 +146,8 @@
     .graph{padding:6px 16px 4px} .leg{display:flex;align-items:center;gap:6px 16px;flex-wrap:wrap;font-size:12px;color:#4a5578;padding:4px 20px 16px} .leg i{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:6px;vertical-align:-1px} .leg b{color:#111a66}
     .ans{margin-left:auto;position:relative;font-size:12px} .ans summary{cursor:pointer;list-style:none;font-weight:700;color:#4a5578;background:#f1f3f8;border-radius:9px;padding:4px 10px;user-select:none} .ans summary::-webkit-details-marker{display:none} .ans summary::after{content:' ▾'} .ans[open] summary{background:#111a66;color:#fff}
     .ans > div{position:absolute;right:0;bottom:calc(100% + 6px);background:#fff;border-radius:12px;box-shadow:0 10px 28px rgba(17,26,102,.2);padding:8px 12px;display:flex;flex-direction:column;gap:6px;z-index:5;min-width:110px} .ans label{display:flex;align-items:center;gap:8px;font-weight:700;color:#111a66;cursor:pointer;white-space:nowrap}
+    .mini th{position:static;padding-left:0} .mini td{padding-left:0} .mini tbody tr{cursor:default} .mini tbody tr:hover td{background:none}
+    .detail{display:inline-block;font-weight:800;color:#111a66;text-decoration:none;background:#e9edfb;border-radius:10px;padding:8px 14px} .detail:hover{background:#dbe2fa}
     .anneau{display:flex;align-items:center;gap:24px;padding:4px 20px 18px;flex-wrap:wrap} .anneau table{width:auto;flex:1;min-width:220px} .anneau td{padding:6px 10px 6px 0;border-top:1px solid #eef1fa} .anneau tr:first-child td{border-top:0} .anneau tbody tr{cursor:default} .anneau tbody tr:hover td{background:none}
     .tuile{background:#fff;border:0;border-radius:14px;padding:10px 12px;text-align:left;cursor:pointer;box-shadow:0 1px 3px rgba(17,26,102,.06);font-family:inherit;border-top:3px solid var(--c);display:flex;flex-direction:column;gap:2px;min-width:0}
     .tuile b{font-size:21px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-weight:800;color:#111a66;letter-spacing:-.02em;line-height:1.1} .tuile span{font-size:12px;font-weight:600;color:#56608a;white-space:nowrap;overflow:hidden;text-overflow:ellipsis} .tuile:hover{box-shadow:0 4px 14px rgba(17,26,102,.12)} .tuile.zero b{color:#b3bad2}
@@ -249,6 +251,38 @@
   // LV Ok, Réalisé ; perdu = Sans Suite + Devisé de plus de deux mois ; Brouillon, RDV, Annulé, Clôturé hors suivi.
   // ---------------------------------------------------------------------------
   const PEREMPTION_J = 60;
+  // 28/11/2026, 19 h 49 (Guillaume, option B) : le taux vient d'abord du RELEVÉ QUOTIDIEN des dossiers (serveur commercial/,
+  // fait une fois par jour par le premier poste connecté) : affichage immédiat, taux en nombre et en valeur, re-devis
+  // regroupés, détail par société, sans rien relire dans Ulyss. À défaut de relevé (serveur absent, relevé jamais fait,
+  // société hors déménagement), on retombe sur le comptage direct de la liste des dossiers (9 lectures).
+  const EXT = (() => { try { return typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.id ? chrome.runtime : null; } catch (e) { return null; } })();
+  function demander(msg) {
+    if (window.__extUlyssRdvEssai) return window.__extUlyssRdvEssai(msg);
+    if (!EXT) return Promise.resolve({ ok: false });
+    return new Promise((ok) => { try { EXT.sendMessage(msg, (r) => { void chrome.runtime.lastError; ok(r || { ok: false }); }); } catch (e) { ok({ ok: false }); } });
+  }
+  let releve = null;   // { quand, donnees } : relevé gardé 10 minutes tant que l'écran reste ouvert
+  async function lireReleve() {
+    if (releve && Date.now() - releve.quand < 600000) return releve.donnees;
+    const r = await demander({ type: 'gc-rdv', cible: 'commercial', donnees: { instance: location.hostname, action: 'lire' } });
+    const d = r && r.ok && r.corps && r.corps.ok && r.corps.fait && r.corps.dossiers ? r.corps : null;
+    releve = { quand: Date.now(), donnees: d }; return d;
+  }
+  const SIGNES = [3, 10, 4, 5, 6], HORS = [0, 1, 7, 8, 11], LETTRE_STE = { 1: 'F', 2: 'L', 3: 'B' };
+  /** Taux d'une année d'après le relevé : { tous, parSte: { F, L, B } } ; un re-devis (_2, _3) = une seule affaire. */
+  function tauxDuReleve(d, an, auj) {
+    const parRacine = {};
+    Object.keys(d.dossiers).forEach((ref) => { const m = ref.match(/^(DGT[CD]([FLB])\d{4}-\d{3})(?:_(\d+))?$/), x = d.dossiers[ref]; if (!m || !x || String(x.c).slice(0, 4) !== String(an)) return; const rang = +(m[3] || 1); if (!parRacine[m[1]] || parRacine[m[1]].rang < rang) parRacine[m[1]] = { rang, s: m[2], c: x.c, t: +x.t || 0, e: +x.e || 0 }; });
+    const vide = () => ({ emis: 0, emisHT: 0, signes: 0, signesHT: 0, jeu: 0, muets: 0, ss: 0, realises: 0, hors: 0 }), tous = vide(), parSte = { F: vide(), L: vide(), B: vide() };
+    Object.values(parRacine).forEach((a) => [tous, parSte[a.s]].forEach((r) => {
+      if (HORS.indexOf(a.e) >= 0) { r.hors++; return; }
+      r.emis++; r.emisHT += a.t;
+      if (SIGNES.indexOf(a.e) >= 0) { r.signes++; r.signesHT += a.t; if (a.e === 6) r.realises++; }
+      else if (a.e === 9) r.ss++;
+      else if ((new Date(auj) - new Date(a.c)) / 86400000 > PEREMPTION_J) r.muets++; else r.jeu++;
+    }));
+    return { tous, parSte };
+  }
   const isoJ = (d) => d.getFullYear() + '-' + ('0' + (d.getMonth() + 1)).slice(-2) + '-' + ('0' + d.getDate()).slice(-2);
   async function compterDossiers(an, extra) {
     const q = '/contracts/filter?filter_contract%5Bcontractable_type_models%5D%5B%5D=MovingContract&filter_contract%5Bcreated_after%5D=' + an + '-01-01' + (choix.ste ? '&filter_contract%5Bstructure_ids%5D%5B%5D=' + encodeURIComponent(choix.ste) : '') + extra;
@@ -264,7 +298,26 @@
     const seuil = isoJ(lim) < fin ? isoJ(lim) : fin, avant = '&filter_contract%5Bcreated_before%5D=', etat = '&filter_contract%5Bstate_ids%5D%5B%5D=';
     const cible = () => (blocs || []).find((x) => x.id === b.id);
     const poser = (o) => { const c = cible(); if (!c) return; Object.assign(c, { titre: 'Taux de transformation', total: null, table: false, figure: true, lignes: [], colonnes: [], chiffres: [], erreur: '', menus: [{ courant: String(an), choix: [0, 1, 2, 3].map((i) => [String(cetteAnnee - i), '#an=' + (cetteAnnee - i)]) }], choisi: {} }, o); dessiner(); };
-    poser({ gros: '…', note: 'calcul sur la liste des dossiers ' + an + '…', graphiques: [], info: '' });
+    poser({ gros: '…', note: 'calcul en cours…', graphiques: [], info: '', tableau: null, lien: null });
+    try {
+      const d = await lireReleve(), lettre = choix.ste ? LETTRE_STE[choix.ste] : '';
+      if (d && (!choix.ste || lettre) && an >= cetteAnnee - 1) {
+        const T = tauxDuReleve(d, an, isoJ(auj)), r = lettre ? T.parSte[lettre] : T.tous, tr = r.signes + r.ss + r.muets, pc = (a, b2) => (b2 ? Math.round(a / b2 * 100) + ' %' : '—');
+        if (r.emis || r.hors) {
+          const noms = { F: 'FRA', L: 'LDL', B: 'BD' };
+          poser({
+            menus: [{ courant: String(an), choix: [0, 1].map((i) => [String(cetteAnnee - i), '#an=' + (cetteAnnee - i)]) }],
+            gros: pc(r.signes, r.emis),
+            note: r.emis ? 'des devis émis sont signés (' + fr(r.signes) + ' sur ' + fr(r.emis) + ') · ' + pc(r.signesHT, r.emisHT) + ' en valeur · ' + pc(r.signes, tr) + ' des dossiers tranchés' : 'aucun devis émis en ' + an,
+            graphiques: r.emis ? [{ type: 'doughnut', centre: 'devis émis', donnees: { datasets: [{ label: 'Signés', values: [r.signes], color: '#22693a' }, { label: 'En jeu (devisés depuis moins de deux mois)', values: [r.jeu], color: '#1d4fd7' }, { label: 'Sans réponse depuis plus de deux mois', values: [r.muets], color: '#f0b9a6' }, { label: 'Sans suite', values: [r.ss], color: '#8f1d14' }] } }] : [],
+            tableau: lettre ? null : { entetes: ['Société', 'Devis émis', 'Signés', 'Taux', 'En valeur', 'Signé HT'], lignes: ['F', 'L', 'B'].map((k) => { const x = T.parSte[k]; return [noms[k], fr(x.emis), fr(x.signes), pc(x.signes, x.emis), pc(x.signesHT, x.emisHT), court(x.signesHT) + ' €']; }) },
+            lien: document.getElementById('ext-ulyss-raccourci-commercial') ? ['Voir le détail dans « Activité commerciale »', '#activite-commerciale'] : null,
+            info: 'Relevé des dossiers du ' + String(d.fait).split('-').reverse().join('/') + ' : déménagements créés en ' + an + (lettre ? ', ' + noms[lettre] : ', trois sociétés') + ', re-devis regroupés. Réalisés : ' + fr(r.realises) + '. Hors suivi (brouillon, rendez-vous, annulé, clôturé) : ' + fr(r.hors) + '. Ce bloc remplace le chiffre d\'Ulyss, qui ne compte pas les dossiers planifiés ou réalisés.',
+          });
+          return;
+        }
+      }
+    } catch (e) { /* comptage direct ci-dessous */ }
     try {
       const demandes = [['total', avant + fin], ['devise', avant + fin + etat + 2], ['ancien', seuil < an + '-01-01' ? null : avant + seuil + etat + 2], ['s3', avant + fin + etat + 3], ['s10', avant + fin + etat + 10], ['s4', avant + fin + etat + 4], ['s5', avant + fin + etat + 5], ['s6', avant + fin + etat + 6], ['ss', avant + fin + etat + 9]];
       const n = {}; let i = 0;
@@ -316,6 +369,8 @@
       b.gros ? el('div', { class: 'gros' }, el('b', {}, beau(b.gros)), el('span', {}, b.note)) : null,
       b.chiffres.length ? el('div', { class: 'stats' }, b.chiffres.map((k) => el('div', { class: 'stat' }, el('div', { class: 'n' }, k.nom), el('div', { class: 'v' + (k.rouge ? ' rouge' : '') }, k.valeur), k.plus ? el('div', { class: 'p' }, k.plus) : null))) : null,
       b.graphiques.flatMap((g, i) => graphique(g, b.id + '/' + i)),
+      b.tableau ? el('div', { style: 'padding:0 20px 14px' }, el('table', { class: 'mini' }, el('thead', {}, el('tr', {}, b.tableau.entetes.map((t, i) => el('th', { class: i ? 'd' : '' }, t)))), el('tbody', {}, b.tableau.lignes.map((l) => el('tr', {}, l.map((v, i) => el('td', { class: i ? 'd' + (i === 3 ? ' montant' : '') : '' }, i === 0 && STES[v] ? el('span', { class: 'ste', style: 'background:' + STES[v] }, v) : v))))))) : null,
+      b.lien ? el('div', { style: 'padding:0 20px 14px' }, el('a', { class: 'detail', href: b.lien[1], onclick: (e) => { e.preventDefault(); const a = document.getElementById('ext-ulyss-raccourci-commercial'); if (a) a.click(); } }, b.lien[0] + ' ›')) : null,
       !b.gros && !b.chiffres.length && !b.graphiques.length ? el('div', { class: 'rien' }, 'Ce bloc ne contient rien que l\'extension sache lire : ouvrez le tableau de bord d\'Ulyss pour le voir.') : null];
     return el('section', { class: 'carte' + (b.large || (b.chiffres.length && !b.graphiques.length) ? ' large' : ''), id: 'bloc-' + b.id, style: '--c:' + c },
       el('div', { class: 'tete' }, el('div', { class: 'ico' }, icone(b.id, b)), el('h2', {}, b.titre), menus, b.total !== null && b.total !== undefined ? el('span', { class: 'nb' }, b.total) : null),
@@ -366,7 +421,7 @@
     suivreDefilement();
   }
   async function charger() {
-    if (enCharge) return; enCharge = true; message = ''; dessiner();
+    if (enCharge) return; enCharge = true; message = ''; releve = null; dessiner();
     try {
       let p = await profilUlyss(choix.scope || '', choix.ste || '');
       // Profil ou société gardés sur le poste mais plus proposés par Ulyss : retour au tableau de bord par défaut.

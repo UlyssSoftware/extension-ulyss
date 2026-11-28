@@ -15,7 +15,12 @@
  */
 (() => {
   'use strict';
-  if (window.__extUlyssActif && !window.__extUlyssActif('commercial')) return;
+  // Deux réglages distincts (28/11/2026, 19 h 49, option B de Guillaume) :
+  //  - « commercial » (réservé) : l'entrée de la barre latérale et l'écran ;
+  //  - « releve » (ouvert à tous les postes) : le relevé quotidien, fait en silence par le premier poste connecté le matin.
+  const ecranActif = !window.__extUlyssActif || window.__extUlyssActif('commercial');
+  const releveActif = !window.__extUlyssActif || window.__extUlyssActif('releve');
+  if (!ecranActif && !releveActif) return;
   const HOTES = /^(fraisseix\.staging\.unova\.fr|ulyss\.fr)$/;
   const essai = () => !!window.__extUlyssRdvEssai;
   if (window.top !== window || (!HOTES.test(location.hostname) && !essai())) return;
@@ -170,22 +175,27 @@
   /** Lit la liste des déménagements créés depuis « depuis », 3 pages à la fois, et la dépose par paquets. */
   async function relever(poste, depuis, suivre) {
     const base = '/contracts/filter?filter_contract%5Bcontractable_type_models%5D%5B%5D=MovingContract&filter_contract%5Bcreated_after%5D=' + depuis + '&page=';
-    const connus = noms(); let lot = {}, total = 0, fin = false;
-    for (let p = 1; p <= 1200 && !fin; p += PARALLELES) {
+    const connus = ecranActif ? noms() : {}; let lot = {}, total = 0, fin = false;
+    // Reprise : si un changement de page a coupé le relevé du jour, on repart de la dernière page déposée, pas du début.
+    const CLE_REPRISE = 'ext-ulyss-commercial-reprise', jourJ = iso(new Date());
+    let debut = 1; try { const r = JSON.parse(localStorage.getItem(CLE_REPRISE) || 'null'); if (r && r.jour === jourJ && r.depuis === depuis && r.page > 1) { debut = r.page; total = r.total || 0; } } catch (e) {}
+    for (let p = debut; p <= 1200 && !fin; p += PARALLELES) {
       const pages = await Promise.all(Array.from({ length: PARALLELES }, (_, i) => page(base + (p + i))));
       pages.forEach((pg) => { const l = lignesDe(pg, connus), n = Object.keys(l).length; if (!n) fin = true; total += n; Object.assign(lot, l); });
       avancement = total + ' dossiers lus'; if (suivre) suivre(avancement);
-      if (Object.keys(lot).length >= 600) { await serveur('commercial', { action: 'relever', poste, dossiers: lot }); lot = {}; }
+      if (Object.keys(lot).length >= 300) { await serveur('commercial', { action: 'relever', poste, dossiers: lot }); lot = {}; try { localStorage.setItem(CLE_REPRISE, JSON.stringify({ jour: jourJ, depuis, page: p + PARALLELES, total })); } catch (e) {} }
     }
-    try { localStorage.setItem(CLE_NOMS, JSON.stringify(connus)); } catch (e) {}
+    if (ecranActif) { try { localStorage.setItem(CLE_NOMS, JSON.stringify(connus)); } catch (e) {} }
     if (!total) throw new Error('liste des dossiers vide ou illisible');
-    return serveur('commercial', { action: 'relever', poste, dossiers: lot, fini: true });
+    const fait = await serveur('commercial', { action: 'relever', poste, dossiers: lot, fini: true });
+    try { localStorage.removeItem(CLE_REPRISE); } catch (e) {}
+    return fait;
   }
   /** Relevé du jour, s'il n'est pas fait : 25 mois la première fois, 13 mois ensuite. */
   function releveDuJour(suivre) {
     if (enCours) return enCours;
     const poste = idPoste(), auj = iso(new Date()), m = memo();
-    if (!poste || (m.jour === auj && (m.fait || m.attendre > Date.now()))) return Promise.resolve(null);
+    if (!releveActif || !poste || (m.jour === auj && (m.fait || m.attendre > Date.now()))) return Promise.resolve(null);
     enCours = (async () => {
       try {
         const r = await serveur('commercial', { action: 'reserver', poste });
@@ -322,6 +332,11 @@
     try { donnees = await serveur('commercial', { action: 'lire' }); message = ''; } catch (e) { donnees = null; message = 'Données illisibles : ' + (e.message || e) + '.'; dessiner(); return; }
     try { prix = await serveur('prix', { action: 'tout' }); } catch (e) { prix = null; }
     dessiner();
+    // Commerciaux sans nom sur ce poste (le relevé a pu être fait ailleurs) : liste déroulante du filtre des dossiers, une lecture.
+    try {
+      const connus = noms(), ids = [...new Set(affaires(donnees.dossiers || {}).map((a) => a.k))].filter((k) => k && !connus[k]);
+      if (ids.length && !charger.nomsLus) { charger.nomsLus = true; const p = await page('/contracts/filter?filter_contract%5Bsearch%5D=zzzzzzzz'); Object.assign(connus, p.listes); localStorage.setItem(CLE_NOMS, JSON.stringify(connus)); dessiner(); }
+    } catch (e) { /* les identifiants restent affichés */ }
   }
   function caler() {
     if (!ecran) return;
@@ -360,12 +375,14 @@
     zone.addEventListener('click', (e) => { const a = e.target.closest && e.target.closest('a.sidebar-link'); if (a && a.id !== ID_ENTREE && ecran) { if (!/^ext-ulyss-/.test(a.id)) history.replaceState(history.state, '', location.pathname + location.search); demonter(); } }, true);
   }
   if (window.__extUlyssCommercialEssai) Object.assign(window.__extUlyssCommercialEssai, { calculer, affaires, periode, lignesDe, releveDuJour });
-  const poser = () => { insererEntree(); suivreAdresse(); };
-  document.addEventListener('turbo:load', poser);
-  window.addEventListener('hashchange', suivreAdresse); window.addEventListener('popstate', suivreAdresse);
-  let prevu = false;
-  new MutationObserver(() => { if (prevu) return; prevu = true; requestAnimationFrame(() => { prevu = false; insererEntree(); }); }).observe(document.documentElement, { childList: true, subtree: true });
-  poser();
+  if (ecranActif) {
+    const poser = () => { insererEntree(); suivreAdresse(); };
+    document.addEventListener('turbo:load', poser);
+    window.addEventListener('hashchange', suivreAdresse); window.addEventListener('popstate', suivreAdresse);
+    let prevu = false;
+    new MutationObserver(() => { if (prevu) return; prevu = true; requestAnimationFrame(() => { prevu = false; insererEntree(); }); }).observe(document.documentElement, { childList: true, subtree: true });
+    poser();
+  }
   // Relevé du jour en arrière-plan, une minute après l'ouverture d'Ulyss, sans gêner les autres lectures du matin.
-  setTimeout(() => { releveDuJour().catch(() => {}); }, 60000);
+  setTimeout(() => { if (document.getElementById('global-sidebar')) releveDuJour().catch(() => {}); }, 60000);
 })();
