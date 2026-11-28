@@ -168,7 +168,7 @@
     .puces{display:flex;gap:4px;flex-wrap:wrap} .puces span{font-size:10.5px;font-weight:800;color:#111a66;background:#e9edfb;border-radius:999px;padding:3px 7px;white-space:nowrap}
     .va{width:28px;text-align:right;color:#b3bad2;font-size:16px} tbody tr:hover .va{color:#111a66} .va a{color:inherit;text-decoration:none}
     .rien{padding:26px 20px 30px;text-align:center;color:#8088a8} .rien b{display:block;color:#22693a;font-size:14px;margin-bottom:2px}
-    .pied{padding:8px 20px 12px;font-size:11.5px;color:#8088a8;border-top:1px solid #eef1fa}
+    .pied{padding:8px 20px 12px;font-size:11.5px;color:#8088a8;border-top:1px solid #eef1fa;line-height:1.5}
     .msg{background:#fff;border-radius:16px;padding:40px 20px;text-align:center;color:#6b7392;line-height:1.7} .err{color:#b42318}
   `;
   function el(nom, attrs = {}, ...enfants) {
@@ -219,7 +219,7 @@
       const tous = D.map((d) => ({ nom: d.label, v: +(d.values || d.data || [0])[0] || 0, c: opaque(d.color) })), parSte = tous.filter((p) => NOMS_STE[String(p.nom).toLowerCase()]), mixte = parSte.length && parSte.length < tous.length;
       const parts = mixte ? tous.filter((p) => parSte.indexOf(p) < 0) : tous, tot = parts.reduce((s, p) => s + p.v, 0) || 1; let a = -Math.PI / 2;
       const arcs = parts.filter((p) => p.v > 0).map((p) => { const b = a + p.v / tot * Math.PI * 2 - 0.0001, gr = b - a > Math.PI ? 1 : 0, pt = (r, t) => (90 + r * Math.cos(t)).toFixed(2) + ' ' + (90 + r * Math.sin(t)).toFixed(2); const ch = `<path d="M${pt(80, a)}A80 80 0 ${gr} 1 ${pt(80, b)}L${pt(52, b)}A52 52 0 ${gr} 0 ${pt(52, a)}Z" fill="${p.c}"><title>${ech(p.nom)} : ${fr(p.v)} (${fr(p.v / tot * 100, 1)} %)</title></path>`; a = b + 0.0001; return ch; }).join('');
-      const svg = dessin(arcs + `<text x="90" y="88" text-anchor="middle" font-size="20" font-weight="800" fill="#111a66">${ech(court(tot))}</text><text x="90" y="106" text-anchor="middle" font-size="10" fill="#6b7392">au total</text>`, 180, 180); svg.style.width = '170px'; svg.style.flex = 'none';
+      const svg = dessin(arcs + `<text x="90" y="88" text-anchor="middle" font-size="20" font-weight="800" fill="#111a66">${ech(court(tot))}</text><text x="90" y="106" text-anchor="middle" font-size="10" fill="#6b7392">${ech(g.centre || 'au total')}</text>`, 180, 180); svg.style.width = '170px'; svg.style.flex = 'none';
       return [el('div', { class: 'anneau' }, svg, el('table', {}, el('tbody', {}, parts.map((p) => el('tr', {}, el('td', {}, el('i', { style: 'display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:8px;background:' + p.c }), p.nom), el('td', { class: 'd montant' }, fr(p.v)), el('td', { class: 'd' }, fr(p.v / tot * 100, 1) + ' %'))), mixte ? [el('tr', {}, el('td', { colspan: '3', style: 'font-size:10.5px;font-weight:800;color:#8088a8;text-transform:uppercase;letter-spacing:.05em;padding-top:12px' }, 'Par société')), parSte.map((p) => el('tr', {}, el('td', {}, el('span', { class: 'ste', style: 'background:' + (STES[nomSte(p.nom)] || p.c) + ';margin-right:8px' }, nomSte(p.nom)), p.nom), el('td', { class: 'd montant' }, fr(p.v)), el('td', { class: 'd' }, fr(p.v / tot * 100, 1) + ' %')))] : null))), null];
     }
     const grille = (max) => [0, 0.5, 1].map((k) => `<line x1="${G}" x2="${L}" y1="${B - k * 170}" y2="${B - k * 170}" stroke="#eef1fa"/><text x="${G - 6}" y="${B - k * 170 + 3.5}" text-anchor="end" font-size="9.5" fill="#8088a8">${ech(court(max * k))}</text>`).join('');
@@ -240,8 +240,48 @@
     D.filter((d) => d.type !== 'bar').forEach((d) => { const pts = (d.data || []).map((v, i) => [G + pas * (i + 0.5), B - (+v || 0) / max * 170, +v || 0]); code += `<polyline points="${pts.map((p) => p[0].toFixed(1) + ',' + p[1].toFixed(1)).join(' ')}" fill="none" stroke="${opaque(d.color)}" stroke-width="2.2" stroke-linejoin="round" stroke-linecap="round"/>` + pts.map((p, i) => `<circle cx="${p[0].toFixed(1)}" cy="${p[1].toFixed(1)}" r="3" fill="#fff" stroke="${opaque(d.color)}" stroke-width="1.8"><title>${abscisse(n, i)} ${ech(d.label)} : ${fr(p[2])}</title></circle>`).join(''); });
     return [el('div', { class: 'graph' }, dessin(code + etiq(n, pas), L, H)), el('div', { class: 'leg' }, D.map((d) => el('span', {}, el('i', { style: 'background:' + opaque(d.color) }), el('b', {}, d.label), d.legendHeader ? ' · ' + beau(d.legendHeader) : '')), choixAns)];
   }
+  // ---------------------------------------------------------------------------
+  // Taux de transformation : calcul Limo Dem à la place du chiffre d'Ulyss (28/11/2026, 19 h 37, choix de Guillaume).
+  // Le bloc d'Ulyss ne compte « validé » que l'état « Dates à programmer » : les dossiers planifiés ou réalisés en sortent
+  // (relevé : claude/ulyss-dashboard-taux-transformation.md). Ici : compteur « Dossiers (n) » de la liste des dossiers,
+  // déménagements créés dans l'année, une lecture par état (9 lectures, 3 à la fois), avec le filtre de société de l'écran.
+  // Règles : claude/ulyss-reporting-commercial-modele.md — signé = Dates à programmer, Attente de groupage, Planning Ok,
+  // LV Ok, Réalisé ; perdu = Sans Suite + Devisé de plus de deux mois ; Brouillon, RDV, Annulé, Clôturé hors suivi.
+  // ---------------------------------------------------------------------------
+  const PEREMPTION_J = 60;
+  const isoJ = (d) => d.getFullYear() + '-' + ('0' + (d.getMonth() + 1)).slice(-2) + '-' + ('0' + d.getDate()).slice(-2);
+  async function compterDossiers(an, extra) {
+    const q = '/contracts/filter?filter_contract%5Bcontractable_type_models%5D%5B%5D=MovingContract&filter_contract%5Bcreated_after%5D=' + an + '-01-01' + (choix.ste ? '&filter_contract%5Bstructure_ids%5D%5B%5D=' + encodeURIComponent(choix.ste) : '') + extra;
+    const r = await fetch(q, { credentials: 'same-origin', headers: { Accept: 'text/html' } });
+    if (!r.ok) throw new Error('Ulyss a répondu ' + r.status);
+    const m = (await r.text()).replace(/<select[\s\S]*?<\/select>/gi, '').match(/Dossiers\s*\(\s*([\d\s\u00a0\u202f]+)\)/);
+    if (!m) throw new Error('compteur de la liste des dossiers introuvable');
+    return +m[1].replace(/\D/g, '');
+  }
+  async function tauxReel(b, an) {
+    const auj = new Date(), cetteAnnee = auj.getFullYear(); an = an || cetteAnnee;
+    const fin = an === cetteAnnee ? isoJ(auj) : an + '-12-31', lim = new Date(auj); lim.setDate(lim.getDate() - PEREMPTION_J);
+    const seuil = isoJ(lim) < fin ? isoJ(lim) : fin, avant = '&filter_contract%5Bcreated_before%5D=', etat = '&filter_contract%5Bstate_ids%5D%5B%5D=';
+    const cible = () => (blocs || []).find((x) => x.id === b.id);
+    const poser = (o) => { const c = cible(); if (!c) return; Object.assign(c, { titre: 'Taux de transformation', total: null, table: false, figure: true, lignes: [], colonnes: [], chiffres: [], erreur: '', menus: [{ courant: String(an), choix: [0, 1, 2, 3].map((i) => [String(cetteAnnee - i), '#an=' + (cetteAnnee - i)]) }], choisi: {} }, o); dessiner(); };
+    poser({ gros: '…', note: 'calcul sur la liste des dossiers ' + an + '…', graphiques: [], info: '' });
+    try {
+      const demandes = [['total', avant + fin], ['devise', avant + fin + etat + 2], ['ancien', seuil < an + '-01-01' ? null : avant + seuil + etat + 2], ['s3', avant + fin + etat + 3], ['s10', avant + fin + etat + 10], ['s4', avant + fin + etat + 4], ['s5', avant + fin + etat + 5], ['s6', avant + fin + etat + 6], ['ss', avant + fin + etat + 9]];
+      const n = {}; let i = 0;
+      const ouvrier = async () => { while (i < demandes.length) { const d = demandes[i++]; n[d[0]] = d[1] === null ? 0 : await compterDossiers(an, d[1]); } };
+      await Promise.all([ouvrier(), ouvrier(), ouvrier()]);
+      const signes = n.s3 + n.s10 + n.s4 + n.s5 + n.s6, emis = signes + n.devise + n.ss, jeu = n.devise - n.ancien, tranches = signes + n.ss + n.ancien;
+      poser({
+        gros: emis ? Math.round(signes / emis * 100) + ' %' : '—',
+        note: emis ? 'des devis émis sont signés (' + fr(signes) + ' sur ' + fr(emis) + ') · ' + (tranches ? Math.round(signes / tranches * 100) + ' % des dossiers tranchés' : '') : 'aucun devis émis en ' + an,
+        graphiques: emis ? [{ type: 'doughnut', centre: 'devis émis', donnees: { datasets: [{ label: 'Signés', values: [signes], color: '#22693a' }, { label: 'En jeu (devisés depuis moins de deux mois)', values: [jeu], color: '#1d4fd7' }, { label: 'Sans réponse depuis plus de deux mois', values: [n.ancien], color: '#f0b9a6' }, { label: 'Sans suite', values: [n.ss], color: '#8f1d14' }] } }] : [],
+        info: 'Calcul Limo Dem sur la liste des dossiers : déménagements créés du 01/01/' + an + ' au ' + fin.split('-').reverse().join('/') + (choix.ste ? ', société filtrée' : ', toutes sociétés') + '. Réalisés : ' + fr(n.s6) + '. Hors suivi (brouillon, rendez-vous, annulé, clôturé) : ' + fr(n.total - emis) + '. Chaque version d\'un re-devis compte. Ce bloc remplace le chiffre d\'Ulyss, qui ne compte pas les dossiers planifiés ou réalisés.',
+      });
+    } catch (e) { poser({ gros: '', note: '', graphiques: [], erreur: 'calcul du taux impossible (' + (e.message || e) + ')' }); }
+  }
   /** Relit un seul bloc avec les paramètres d'un menu d'Ulyss (semaine / mois, CA / nombre, dépôt, année…). */
   async function relireBloc(b, href, rang, libelle) {
+    if (/^#an=\d{4}$/.test(href)) { tauxReel(b, +href.slice(4)); return; }
     try {
       const u = new URL(href, location.origin), base = new URL(b.src, location.origin);
       base.searchParams.forEach((v, k) => { if (!u.searchParams.has(k)) u.searchParams.set(k, v); });
@@ -280,7 +320,8 @@
     return el('section', { class: 'carte' + (b.large || (b.chiffres.length && !b.graphiques.length) ? ' large' : ''), id: 'bloc-' + b.id, style: '--c:' + c },
       el('div', { class: 'tete' }, el('div', { class: 'ico' }, icone(b.id, b)), el('h2', {}, b.titre), menus, b.total !== null && b.total !== undefined ? el('span', { class: 'nb' }, b.total) : null),
       corps,
-      b.table && b.lignes.length !== b.total && !b.erreur ? el('div', { class: 'pied' }, b.lignes.length + ' lignes affichées par Ulyss sur ' + b.total + '.') : null);
+      b.table && b.lignes.length !== b.total && !b.erreur ? el('div', { class: 'pied' }, b.lignes.length + ' lignes affichées par Ulyss sur ' + b.total + '.') : null,
+      b.info && !b.erreur ? el('div', { class: 'pied' }, b.info) : null);
   }
   /** Ce que montre la tuile du bandeau : le compteur d'une liste, sinon le chiffre principal du bloc. */
   function resume(b) {
@@ -335,10 +376,11 @@
       const liste = p.cadres, lus = new Array(liste.length); let i = 0;
       const ouvrier = async () => { while (i < liste.length) { const n = i++, b = liste[n]; try { lus[n] = lireBloc(b.id, await html(b.src, b.id)); } catch (e) { lus[n] = { id: b.id, titre: COURTS[b.id] || b.id, total: null, colonnes: [], lignes: [], chiffres: [], graphiques: [], menus: [], gros: '', note: '', erreur: String(e.message || e) }; } lus[n].src = b.src; lus[n].large = b.large; } };
       await Promise.all([ouvrier(), ouvrier(), ouvrier()]);
+      lus.forEach((b) => { if (b.id === 'conversion-rate' && !b.erreur) Object.assign(b, { gros: '…', note: 'calcul en cours…', graphiques: [], menus: [] }); });
       blocs = lus; quand = new Date();
     } catch (e) { message = 'Tableau de bord d\'Ulyss illisible : ' + (e.message || e) + '.'; }
     enCharge = false; dessiner();
-    if (blocs) chercherSocietes(blocs, poserBadges);
+    if (blocs) { chercherSocietes(blocs, poserBadges); const t = blocs.find((b) => b.id === 'conversion-rate' && !b.erreur); if (t) tauxReel(t); }
   }
   function caler() { if (!ecran) return; const sb = document.getElementById('global-sidebar'), zone = ecran.shadowRoot.querySelector('.page'); if (zone) zone.style.left = (sb ? Math.round(sb.getBoundingClientRect().right) : 0) + 'px'; }
   let veille = null;
