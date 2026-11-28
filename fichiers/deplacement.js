@@ -1,21 +1,25 @@
 /*
  * Extension Ulyss — repère « Déplacement » (28/11/2026, demande de Guillaume).
- *  1. Écran Pré-planification d'un dossier : une coche « Déplacement ». Cochée, elle dit que ce déménagement entraîne des
- *     découchés. Elle est gardée sur ulyss-software.com/extension-ulyss/deplacement/ (numéro et identifiant du dossier,
- *     aucun nom), commune à tous les postes équipés de l'extension. Rien n'est écrit dans Ulyss.
- *  2. Planning : les cartes des dossiers cochés sont entourées d'un liseré rouge fin, sur TOUTE la durée du déménagement
- *     (y compris les premiers jours, où personne ne découche encore) : l'équipe qui commence ce chantier découchera.
- * Reconnaître les cartes sans rien demander de plus à Ulyss (relevé production du 28/11/2026) :
- *   - vue semaine (/exploitation_requirements) : chaque carte porte un lien /contracts/<id> → reconnue directement ;
- *     l'identifiant de la carte est alors retenu sur le serveur ;
- *   - écrans d'affectation (jour, normal et compact) : les cartes ne portent pas le dossier → reconnues par les identifiants
- *     retenus. S'il y a des dossiers cochés et que la semaine affichée n'a pas encore été vue pendant cette session, la vue
- *     semaine est lue une fois en arrière-plan (une requête par semaine et par session, jamais plus).
+ *  1. Écran Pré-planification : une coche « Déplacement » dans l'EN-TÊTE DE LA PHASE (à côté de son titre et de ses dates).
+ *     Cochée, elle dit que cette phase entraîne des découchés. Elle vaut pour cette phase et elle seule : elle ne se reporte
+ *     jamais sur les autres phases du même dossier (Guillaume, 12 h 02). Gardée sur ulyss-software.com/extension-ulyss/
+ *     deplacement/ (identifiants de la phase et du dossier, numéro du dossier, aucun nom). Rien n'est écrit dans Ulyss.
+ *  2. Planning : les cartes de la phase cochée sont entourées d'un liseré rouge fin, sur TOUTE sa durée (y compris les
+ *     premiers jours, où personne ne découche encore) : l'équipe qui commence ce chantier découchera.
+ * Reconnaître les cartes d'une phase (relevés production du 28/11/2026) :
+ *   - vue semaine (/exploitation_requirements) : la carte porte un lien /contracts/<id> (le dossier), pas la phase ;
+ *   - la phase d'une carte ne se lit que dans /exploitation_requirements/<carte>/edit (un seul « contracts/<id>/phases/<phase> »),
+ *     page lente (7 à 8 s) : elle n'est lue que pour les cartes d'un dossier qui a une phase cochée ET plusieurs phases, une
+ *     seule fois par carte tous postes confondus (le résultat est retenu sur le serveur), et une carte à la fois ;
+ *   - dossier à une seule phase : toute carte du dossier est celle de la phase, sans aucune lecture ;
+ *   - écrans d'affectation (jour, normal et compact) : les cartes ne portent pas le dossier → entourées d'après les
+ *     identifiants déjà retenus (appris dès qu'un poste affiche la vue semaine). Aucune lecture en arrière-plan : la vue
+ *     semaine met près de 15 s à répondre.
  */
 (() => {
   'use strict';
   const HOTES = /^(fraisseix\.staging\.unova\.fr|ulyss\.fr)$/;
-  const PHASES = /^\/contracts\/(\d+)\/phases(?:\/\d+)?\/?$/;
+  const PHASES = /^\/contracts\/(\d+)\/phases(?:\/(\d+))?\/?$/;
   const ID_COCHE = 'ext-ulyss-deplacement';
   const CLASSE = 'ext-ulyss-carte-deplacement';
   const CLE = 'ext-ulyss-deplacement';
@@ -39,22 +43,22 @@
     }
     if (!r || !r.ok) throw new Error((r && r.motif) || 'pas de réponse');
     if (!r.corps || !r.corps.ok) throw new Error((r.corps && r.corps.erreur) || 'réponse illisible du serveur (code ' + r.statut + ') : le dossier « deplacement » est-il déposé ?');
-    garder(r.corps.dossiers || {});
-    return r.corps.dossiers || {};
+    garder(r.corps.phases || {});
+    return r.corps.phases || {};
   }
-  // Liste des dossiers cochés : { <id dossier>: { ref, depuis, cartes: [<id carte>] } }, gardée un court moment sur le poste.
+  // Phases cochées : { <id phase>: { dossier, ref, depuis, nb, cartes: [<id carte>], autres: [<id carte>] } }, gardées un court moment.
   let memo = null;
-  function garder(dossiers) { memo = { quand: Date.now(), dossiers }; try { localStorage.setItem(CLE, JSON.stringify(memo)); } catch (e) {} }
+  function garder(phases) { memo = { quand: Date.now(), phases }; try { localStorage.setItem(CLE, JSON.stringify(memo)); } catch (e) {} }
   function enMemoire() {
     if (!memo) { try { memo = JSON.parse(localStorage.getItem(CLE) || 'null'); } catch (e) { memo = null; } }
-    return memo && memo.dossiers ? memo : null;
+    return memo && memo.phases ? memo : null;
   }
   let lecture = null;
   /** Liste à jour (au plus une demande au serveur toutes les 2 minutes ; « frais » force la demande). */
   function liste(frais) {
     const m = enMemoire();
-    if (!frais && m && Date.now() - m.quand < FRAICHEUR) return Promise.resolve(m.dossiers);
-    if (!lecture) lecture = serveur({ action: 'lire' }, true).catch(() => { const x = enMemoire(); if (x) { x.quand = Date.now(); memo = x; } return x ? x.dossiers : {}; }).finally(() => { lecture = null; });
+    if (!frais && m && Date.now() - m.quand < FRAICHEUR) return Promise.resolve(m.phases);
+    if (!lecture) lecture = serveur({ action: 'lire' }, true).catch(() => { const x = enMemoire(); if (x) { x.quand = Date.now(); memo = x; } return x ? x.phases : {}; }).finally(() => { lecture = null; });
     return lecture;
   }
 
@@ -69,33 +73,57 @@
     }
     return '';
   }
+  /** Phase affichée : turbo-frame#edit-phase-<id> de son en-tête, sinon l'adresse, sinon les étapes. */
+  function phaseAffichee(titre) {
+    const cadre = titre && titre.parentElement ? titre.parentElement.querySelector('turbo-frame[id^="edit-phase-"]') : null;
+    if (cadre) return cadre.id.replace(/\D/g, '');
+    const parAdresse = (location.pathname.match(PHASES) || [])[2];
+    if (parAdresse) return parAdresse;
+    try { const evs = JSON.parse(document.querySelector('[data-events]').getAttribute('data-events') || '[]'); return evs.map((e) => (String(e.url || '').match(/phases\/(\d+)/) || [])[1]).find(Boolean) || ''; } catch (e) { return ''; }
+  }
+  /** Nombre de phases du dossier : compteur « 1/3 » à droite de l'en-tête, sinon les liens vers les phases. */
+  function nombreDePhases(titre, dossier) {
+    const rang = titre && titre.parentElement && titre.parentElement.parentElement;
+    for (const z of rang ? rang.children : []) { const m = z.textContent.replace(/\s+/g, '').match(/^(\d+)\/(\d+)$/); if (m) return Math.max(1, +m[2]); }
+    const vues = new Set();
+    document.querySelectorAll('a[href*="/phases/"]').forEach((a) => { const m = (a.getAttribute('href') || '').match(new RegExp('^/contracts/' + dossier + '/phases/(\\d+)$')); if (m) vues.add(m[1]); });
+    return Math.max(1, vues.size);
+  }
   function poserCoche() {
     const m = location.pathname.match(PHASES);
     const deja = document.getElementById(ID_COCHE);
-    if (!m || !document.querySelector('[data-events]')) { if (deja) deja.remove(); return; }
-    if (deja && deja.dataset.dossier === m[1]) return;
+    const titre = document.getElementById('phase-title');
+    if (!m || !document.querySelector('[data-events]') || !titre) { if (deja) deja.remove(); return; }
+    const phase = phaseAffichee(titre);
+    if (!phase) { if (deja) deja.remove(); return; }
+    if (deja && deja.dataset.phase === phase && deja.isConnected && deja.parentElement === titre.parentElement) return;
     if (deja) deja.remove();
     const ref = numeroDossier();
     if (!ref) return;
-    const affichage = [...document.querySelectorAll('a.btn, button')].find((b) => b.textContent.trim().toLowerCase() === 'affichage');
+    const dossier = m[1], nb = nombreDePhases(titre, dossier);
     const boite = document.createElement('label');
-    boite.id = ID_COCHE; boite.dataset.dossier = m[1];
-    boite.title = 'Ce déménagement entraîne des découchés : ses cartes sont entourées de rouge au Planning, du premier au dernier jour (Extension Ulyss)';
-    boite.style.cssText = 'display:inline-flex;align-items:center;gap:7px;margin-left:12px;padding:6px 12px;border:1px solid #d5dae3;border-radius:8px;background:#fff;font-size:14px;line-height:1;color:#1f2a44;cursor:pointer;user-select:none;white-space:nowrap;vertical-align:middle';
+    boite.id = ID_COCHE; boite.dataset.phase = phase;
+    boite.title = 'Cette phase entraîne des découchés : ses cartes sont entourées de rouge au Planning, du premier au dernier jour. La coche ne vaut que pour cette phase (Extension Ulyss)';
+    boite.style.cssText = 'display:inline-flex;align-items:center;gap:7px;margin-left:14px;padding:5px 11px;border:1px solid #d5dae3;border-radius:8px;background:#fff;font-size:14px;font-weight:400;line-height:1;letter-spacing:0;text-transform:none;color:#1f2a44;cursor:pointer;user-select:none;white-space:nowrap';
     const case_ = document.createElement('input');
     case_.type = 'checkbox'; case_.disabled = true; case_.style.cssText = 'width:16px;height:16px;margin:0;accent-color:#dc2626;cursor:pointer';
     const texte = document.createElement('span'); texte.textContent = 'Déplacement';
     boite.append(case_, texte);
-    const montrer = (dossiers) => { const oui = !!dossiers[m[1]]; case_.checked = oui; boite.style.borderColor = oui ? '#dc2626' : '#d5dae3'; boite.style.boxShadow = oui ? '0 0 0 1px #dc2626' : 'none'; };
+    const montrer = (phases) => { const oui = !!phases[phase]; case_.checked = oui; boite.style.borderColor = oui ? '#dc2626' : '#d5dae3'; boite.style.boxShadow = oui ? '0 0 0 1px #dc2626' : 'none'; };
     const echec = (e) => { texte.textContent = 'Déplacement (indisponible)'; boite.title = 'Repère « Déplacement » indisponible : ' + ((e && e.message) || e); };
-    const ancre = document.getElementById('limodem-bouton-rappel') || (affichage ? affichage.closest('.dropdown') || affichage : null);
-    if (ancre) ancre.insertAdjacentElement('afterend', boite); else document.querySelector('[data-events]').insertAdjacentElement('beforebegin', boite);
-    serveur({ action: 'lire' }).then((d) => { montrer(d); case_.disabled = false; }).catch(echec);
+    // Dans l'en-tête de la phase : après ses dates (avant le menu ⋮ de la phase).
+    const dates = titre.parentElement.querySelector('#phase-dates') || titre;
+    dates.insertAdjacentElement('afterend', boite);
+    serveur({ action: 'lire' }).then((p) => {
+      montrer(p); case_.disabled = false;
+      // Le dossier a une phase cochée et son nombre de phases a changé : le dire au serveur (les cartes seront vérifiées une à une).
+      if (Object.values(p).some((x) => String(x.dossier) === dossier && (x.nb || 1) !== nb)) return serveur({ action: 'phases', dossier, nb }, true).then(montrer);
+    }).catch(echec);
     case_.addEventListener('change', async () => {
       const voulu = case_.checked;
       case_.disabled = true;
       try {
-        montrer(await serveur({ action: 'cocher', id: m[1], ref, coche: voulu }));   // l'état affiché est celui que le serveur renvoie
+        montrer(await serveur({ action: 'cocher', phase, dossier, ref, nb, coche: voulu }));   // l'état affiché est celui que le serveur renvoie
         texte.textContent = 'Déplacement';
       } catch (e) { case_.checked = !voulu; echec(e); }
       case_.disabled = false;
@@ -120,49 +148,52 @@
     }
     return '';
   }
-  const semainesVues = new Set();
-  let envoi = null;
-  /** Apprend au serveur les cartes reconnues ({ <id dossier>: [<id carte>] }). */
-  function retenir(nouvelles) {
-    if (!Object.keys(nouvelles).length) return;
-    envoi = (envoi || Promise.resolve()).then(() => serveur({ action: 'cartes', cartes: nouvelles }, true)).then(marquer, () => {});
+  // Vérifications en attente : une carte à la fois (la page /edit est lente), jamais deux fois la même carte.
+  const enVerification = new Set();
+  let file = Promise.resolve(), envoi = null;
+  function retenir(oui, non) {
+    if (!Object.keys(oui).length && !Object.keys(non).length) return;
+    envoi = (envoi || Promise.resolve()).then(() => serveur({ action: 'cartes', oui, non }, true)).then(() => marquer(), () => {});
   }
-  function apprendre(doc, dossiers) {
-    const nouvelles = {};
-    doc.querySelectorAll('[id^="card_exploitation_requirement_"]').forEach((c) => {
-      const d = dossierDeCarte(c), er = idCarte(c);
-      if (d && er && dossiers[d] && !(dossiers[d].cartes || []).includes(er)) (nouvelles[d] = nouvelles[d] || []).push(er);
+  /** Lit la phase d'une carte dans sa page /edit, puis range la carte : « oui » pour sa phase si elle est cochée, « non » pour les autres. */
+  function verifier(er, phasesDuDossier) {
+    if (enVerification.has(er)) return;
+    enVerification.add(er);
+    file = file.then(async () => {
+      try {
+        const html = await fetch('/exploitation_requirements/' + er + '/edit', { credentials: 'same-origin' }).then((r) => (r.ok ? r.text() : ''));
+        const trouvee = (html.match(/contracts\/\d+\/phases\/(\d+)/) || [])[1];
+        if (!trouvee) { enVerification.delete(er); return; }   // page illisible : on réessaiera à un prochain affichage
+        const oui = {}, non = {};
+        phasesDuDossier.forEach((p) => { ((p === trouvee ? oui : non)[p] = []).push(er); });
+        retenir(oui, non);
+      } catch (e) { enVerification.delete(er); }
     });
-    return nouvelles;
   }
   async function marquer() {
     if (!location.pathname.startsWith('/exploitation_requirements')) return;
     const cartes = [...document.querySelectorAll('[id^="card_exploitation_requirement_"]')];
     if (!cartes.length) return;
-    const dossiers = await liste();
-    const ids = Object.keys(dossiers);
-    const parCarte = new Set();
-    ids.forEach((d) => (dossiers[d].cartes || []).forEach((er) => parCarte.add(er)));
+    const phases = await liste();
+    const ids = Object.keys(phases);
+    const retenues = new Set(), parDossier = {};
+    ids.forEach((p) => { (phases[p].cartes || []).forEach((er) => retenues.add(er)); (parDossier[phases[p].dossier] = parDossier[phases[p].dossier] || []).push(p); });
     style();
-    let sansDossier = 0;
+    const oui = {};
     cartes.forEach((c) => {
-      const d = dossierDeCarte(c);
-      if (!d) sansDossier++;
-      const oui = d ? !!dossiers[d] : parCarte.has(idCarte(c));
-      c.classList.toggle(CLASSE, oui);
-      if (oui) c.dataset.extUlyssDeplacement = '1'; else delete c.dataset.extUlyssDeplacement;
+      const er = idCarte(c), d = dossierDeCarte(c), duDossier = d ? parDossier[d] : null;
+      let rouge = retenues.has(er);
+      if (!rouge && duDossier && er) {
+        const inconnues = duDossier.filter((p) => !(phases[p].autres || []).includes(er));
+        if (inconnues.length) {
+          // Dossier à une seule phase : la carte est forcément celle de la phase cochée. Sinon, lire la phase de la carte.
+          if (duDossier.length === 1 && (phases[duDossier[0]].nb || 1) === 1) { rouge = true; if (!enVerification.has(er)) { enVerification.add(er); (oui[duDossier[0]] = oui[duDossier[0]] || []).push(er); } }
+          else verifier(er, duDossier);
+        }
+      }
+      c.classList.toggle(CLASSE, rouge);
     });
-    if (!ids.length) return;
-    retenir(apprendre(document, dossiers));
-    // Écran d'affectation (aucune carte ne porte son dossier) : lire une fois la vue semaine du jour affiché pour apprendre ses cartes.
-    const jour = new URLSearchParams(location.search).get('date') || '';
-    if (sansDossier === cartes.length && /^\d{4}-\d{2}-\d{2}$/.test(jour) && !semainesVues.has(jour)) {
-      semainesVues.add(jour);
-      try {
-        const html = await fetch('/exploitation_requirements?date=' + jour, { credentials: 'same-origin' }).then((r) => (r.ok ? r.text() : ''));
-        retenir(apprendre(new DOMParser().parseFromString(html, 'text/html'), dossiers));
-      } catch (e) { /* on réessaiera à la prochaine session */ }
-    }
+    retenir(oui, {});
   }
 
   // Un seul passage par image affichée, et seulement sur les deux écrans concernés.
