@@ -233,7 +233,8 @@
   //  - anneaux : jauge pour les taux d'occupation, barre segmentée et barres de détail pour le reste.
   // ---------------------------------------------------------------------------
   const CLE_STYLE = 'ext-ulyss-dashboard2-style';
-  let style = (() => { try { return localStorage.getItem(CLE_STYLE) === 'moderne' ? 'moderne' : 'classique'; } catch (e) { return 'classique'; } })();
+  // 28/11/2026, 20 h 15 (Guillaume) : « la vue moderne par défaut sur la V2 ». Classique seulement si le poste l'a choisi.
+  let style = (() => { try { return localStorage.getItem(CLE_STYLE) === 'classique' ? 'classique' : 'moderne'; } catch (e) { return 'moderne'; } })();
   const MOIS_L = ['janvier', 'février', 'mars', 'avril', 'mai', 'juin', 'juillet', 'août', 'septembre', 'octobre', 'novembre', 'décembre'];
   const semaineDuJour = () => { const d = new Date(); d.setHours(0, 0, 0, 0); d.setDate(d.getDate() + 3 - ((d.getDay() + 6) % 7)); const j1 = new Date(d.getFullYear(), 0, 4); return 1 + Math.round(((d - j1) / 86400000 - 3 + ((j1.getDay() + 6) % 7)) / 7); };
   /** Courbe lissée (Catmull-Rom → Bézier), sans passer sous la ligne de base. */
@@ -525,7 +526,7 @@
     const sSte = el('select', { 'aria-label': 'Société', title: 'Filtre par société d\'Ulyss', onchange: () => { choix.ste = sSte.value; charger(); } }, el('option', { value: '' }, 'Toutes les sociétés'), profil.structures.map((x) => el('option', { value: x[0] }, x[1]))); sSte.value = choix.ste || '';
     const tete = el('div', { class: 'haut' },
       el('div', {}, el('h1', {}, 'Tableau de bord'), el('div', { class: 'sous' }, quand ? 'Mêmes informations que le tableau de bord d\'Ulyss · lu à ' + ('0' + quand.getHours()).slice(-2) + ' h ' + ('0' + quand.getMinutes()).slice(-2) : 'Mêmes informations que le tableau de bord d\'Ulyss')),
-      el('div', { class: 'outils' }, el('div', { class: 'seg', title: 'Style des graphiques' }, [['classique', 'Classique'], ['moderne', 'Moderne (essai)']].map(([v, t]) => el('button', { 'aria-pressed': String(style === v), onclick: () => { if (style === v) return; style = v; try { localStorage.setItem(CLE_STYLE, v); } catch (e) {} dessiner(); } }, t))), profil.structures.length ? sSte : null, bMaj));
+      el('div', { class: 'outils' }, el('div', { class: 'seg', title: 'Style des graphiques' }, [['moderne', 'Moderne'], ['classique', 'Classique']].map(([v, t]) => el('button', { 'aria-pressed': String(style === v), onclick: () => { if (style === v) return; style = v; try { localStorage.setItem(CLE_STYLE, v); } catch (e) {} dessiner(); } }, t))), profil.structures.length ? sSte : null, bMaj));
     const onglets = profil.profils.length > 1 ? el('div', { class: 'onglets', role: 'tablist', 'aria-label': 'Profil du tableau de bord' }, profil.profils.map((p) => el('button', { role: 'tab', 'aria-selected': String(p[0] === profil.scope), onclick: () => { if (p[0] === profil.scope || enCharge) return; choix.scope = p[0]; blocs = null; zone.scrollTop = 0; charger(); } }, p[1]))) : null;
     if (!blocs || !blocs.length) { zone.replaceChildren(tete, ...(onglets ? [onglets] : []), el('div', { class: 'msg' + (message ? ' err' : '') }, message || (blocs ? 'Ulyss ne propose aucun bloc à ce profil.' : 'Lecture du tableau de bord d\'Ulyss…'))); return; }
     const ordre = [], reste = blocs.filter((b) => !THEMES.some((t) => t[2].indexOf(b.id) >= 0));
