@@ -148,6 +148,21 @@
     .ans > div{position:absolute;right:0;bottom:calc(100% + 6px);background:#fff;border-radius:12px;box-shadow:0 10px 28px rgba(17,26,102,.2);padding:8px 12px;display:flex;flex-direction:column;gap:6px;z-index:5;min-width:110px} .ans label{display:flex;align-items:center;gap:8px;font-weight:700;color:#111a66;cursor:pointer;white-space:nowrap}
     .mini th{position:static;padding-left:0} .mini td{padding-left:0} .mini tbody tr{cursor:default} .mini tbody tr:hover td{background:none}
     .detail{display:inline-block;font-weight:800;color:#111a66;text-decoration:none;background:#e9edfb;border-radius:10px;padding:8px 14px} .detail:hover{background:#dbe2fa}
+    .mod-tete{display:flex;align-items:flex-end;gap:12px 24px;flex-wrap:wrap;padding:2px 20px 4px}
+    .mod-lib{font-size:10.5px;font-weight:800;color:#8088a8;text-transform:uppercase;letter-spacing:.06em}
+    .mod-val{font-size:28px;font-weight:800;color:#111a66;letter-spacing:-.02em;line-height:1.15} .mod-val.petit{font-size:17px;color:#56608a}
+    .mod-evo{display:flex;flex-direction:column;font-size:14px;font-weight:800;border-radius:12px;padding:6px 12px;background:#f1f3f8;color:#4a5578;line-height:1.3} .mod-evo small{font-size:11px;font-weight:600;opacity:.85}
+    .mod-evo.hausse{background:#eaf5ec;color:#22693a} .mod-evo.baisse{background:#fdebe4;color:#a23b1c} .mod-ref{margin-left:auto;text-align:right}
+    .mod-graph{position:relative} .mod-bulle{display:none;position:absolute;top:0;pointer-events:none;background:#111a66;color:#fff;border-radius:12px;padding:9px 12px;font-size:12px;box-shadow:0 10px 24px rgba(17,26,102,.28);min-width:150px;z-index:3}
+    .mod-bulle .t{font-weight:800;margin-bottom:4px} .mod-bulle .l{display:flex;align-items:center;gap:8px;line-height:1.6} .mod-bulle .l i{width:8px;height:8px;border-radius:50%} .mod-bulle .l b{margin-left:auto;padding-left:12px;font-variant-numeric:tabular-nums} .mod-bulle .e{margin-top:4px;font-weight:800} .mod-bulle .e.hausse{color:#86efac} .mod-bulle .e.baisse{color:#fca5a5}
+    .leg i.tiret{background:none;border-top:2px dashed #8f98b8;height:0;width:16px;border-radius:0;vertical-align:3px}
+    .mod-bande{display:grid;grid-template-columns:repeat(12,1fr);gap:4px;padding:0 20px 14px} .mod-bande .cel{border-radius:8px;background:#f6f8fe;padding:5px 1px;text-align:center;cursor:default} .mod-bande span{display:block;font-size:9.5px;color:#56608a;font-weight:700} .mod-bande b{font-size:11px;color:#111a66;white-space:nowrap} .mod-bande .futur{opacity:.45}
+    .mod-pad{padding:0 20px 16px}
+    .barre100{display:flex;height:10px;border-radius:999px;overflow:hidden;background:#eef1fa;margin:8px 0 10px;gap:2px} .barre100 i{display:block;height:100%} .barre100.epais{height:26px;border-radius:10px;margin-top:4px} .barre100.epais i{display:flex;align-items:center;justify-content:center;color:#fff;font-size:11px;font-weight:800;font-style:normal;overflow:hidden}
+    .leg2{display:flex;gap:6px 18px;flex-wrap:wrap;font-size:12px;color:#4a5578} .leg2 i{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:6px;vertical-align:-1px} .leg2 b{margin-left:6px;color:#111a66} .leg2 em{margin-left:6px;font-style:normal;color:#8088a8}
+    .mod-jauge{display:flex;align-items:center;gap:20px;padding:4px 20px 16px;flex-wrap:wrap} .mod-lignes{flex:1;min-width:240px;display:flex;flex-direction:column;gap:9px}
+    .lb{display:grid;grid-template-columns:minmax(120px,2.2fr) 1.6fr auto 54px;gap:10px;align-items:center;font-size:12.5px} .lb-n{display:flex;align-items:center;gap:8px;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis} .lb-n i{width:10px;height:10px;border-radius:3px;flex:none}
+    .lb-f{height:8px;background:#eef1fa;border-radius:999px;overflow:hidden} .lb-f i{display:block;height:100%;border-radius:999px} .lb b{color:#111a66;font-variant-numeric:tabular-nums;text-align:right} .lb-p{color:#8088a8;text-align:right;font-size:12px}
     .anneau{display:flex;align-items:center;gap:24px;padding:4px 20px 18px;flex-wrap:wrap} .anneau table{width:auto;flex:1;min-width:220px} .anneau td{padding:6px 10px 6px 0;border-top:1px solid #eef1fa} .anneau tr:first-child td{border-top:0} .anneau tbody tr{cursor:default} .anneau tbody tr:hover td{background:none}
     .tuile{background:#fff;border:0;border-radius:14px;padding:10px 12px;text-align:left;cursor:pointer;box-shadow:0 1px 3px rgba(17,26,102,.06);font-family:inherit;border-top:3px solid var(--c);display:flex;flex-direction:column;gap:2px;min-width:0}
     .tuile b{font-size:21px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-weight:800;color:#111a66;letter-spacing:-.02em;line-height:1.1} .tuile span{font-size:12px;font-weight:600;color:#56608a;white-space:nowrap;overflow:hidden;text-overflow:ellipsis} .tuile:hover{box-shadow:0 4px 14px rgba(17,26,102,.12)} .tuile.zero b{color:#b3bad2}
@@ -208,7 +223,110 @@
     d.open = !!menuOuvert[cle]; d.addEventListener('toggle', () => { menuOuvert[cle] = d.open; });
     return d;
   }
-  function graphique(g, cle) {
+  // ---------------------------------------------------------------------------
+  // Affichage « Moderne (essai) » des graphiques (28/11/2026, 19 h 58, Guillaume : « à titre expérimental… quelque chose de
+  // plus moderne… avec un bouton pour faire afficher différemment », sans rien perdre de l'existant). Mêmes données qu'Ulyss ;
+  // l'affichage « Classique » reste celui par défaut. Choix gardé sur le poste (ext-ulyss-dashboard2-style).
+  //  - séries par année : chiffre de l'année à date et évolution contre la même période de l'année précédente, courbe lissée
+  //    de l'année en cours avec aire dégradée, année précédente en pointillé, bulle de détail au survol, bande d'évolution
+  //    mois par mois, répartition de l'année (professionnels / autres…) en barre 100 % ;
+  //  - anneaux : jauge pour les taux d'occupation, barre segmentée et barres de détail pour le reste.
+  // ---------------------------------------------------------------------------
+  const CLE_STYLE = 'ext-ulyss-dashboard2-style';
+  let style = (() => { try { return localStorage.getItem(CLE_STYLE) === 'moderne' ? 'moderne' : 'classique'; } catch (e) { return 'classique'; } })();
+  const MOIS_L = ['janvier', 'février', 'mars', 'avril', 'mai', 'juin', 'juillet', 'août', 'septembre', 'octobre', 'novembre', 'décembre'];
+  const semaineDuJour = () => { const d = new Date(); d.setHours(0, 0, 0, 0); d.setDate(d.getDate() + 3 - ((d.getDay() + 6) % 7)); const j1 = new Date(d.getFullYear(), 0, 4); return 1 + Math.round(((d - j1) / 86400000 - 3 + ((j1.getDay() + 6) % 7)) / 7); };
+  /** Courbe lissée (Catmull-Rom → Bézier), sans passer sous la ligne de base. */
+  function lisse(pts, B) {
+    if (!pts.length) return ''; let d = 'M' + pts[0][0].toFixed(1) + ',' + pts[0][1].toFixed(1);
+    for (let i = 0; i < pts.length - 1; i++) {
+      const p0 = pts[i - 1] || pts[i], p1 = pts[i], p2 = pts[i + 1], p3 = pts[i + 2] || p2, y = (v) => Math.min(B, v).toFixed(1);
+      d += ' C' + (p1[0] + (p2[0] - p0[0]) / 6).toFixed(1) + ',' + y(p1[1] + (p2[1] - p0[1]) / 6) + ' ' + (p2[0] - (p3[0] - p1[0]) / 6).toFixed(1) + ',' + y(p2[1] - (p3[1] - p1[1]) / 6) + ' ' + p2[0].toFixed(1) + ',' + p2[1].toFixed(1);
+    }
+    return d;
+  }
+  const ligneBarre = (p, tot) => el('div', { class: 'lb' }, el('div', { class: 'lb-n' }, p.badge ? el('span', { class: 'ste', style: 'background:' + p.c }, p.nom) : [el('i', { style: 'background:' + p.c }), p.nom]), el('div', { class: 'lb-f' }, el('i', { style: 'width:' + Math.max(1, p.v / tot * 100) + '%;background:' + p.c })), el('b', {}, fr(p.v)), el('span', { class: 'lb-p' }, fr(p.v / tot * 100, 1) + ' %'));
+  function anneauModerne(g, c) {
+    const tous = g.donnees.datasets.map((d) => ({ nom: d.label, v: +(d.values || d.data || [0])[0] || 0, c: opaque(d.color) })), parSte = tous.filter((p) => NOMS_STE[String(p.nom).toLowerCase()]), mixte = parSte.length && parSte.length < tous.length;
+    const parts = mixte ? tous.filter((p) => parSte.indexOf(p) < 0) : tous, tot = parts.reduce((t, p) => t + p.v, 0) || 1, occ = parts.find((p) => /^occup/i.test(p.nom)), out = [];
+    if (occ) {
+      const r = occ.v / tot, a = Math.PI * (1 - r), x = 110 + 86 * Math.cos(a), y = 106 - 86 * Math.sin(a);
+      const svg = dessin(`<path d="M24,106 A86,86 0 0 1 196,106" fill="none" stroke="#eef1fa" stroke-width="18" stroke-linecap="round"/>${r > 0.002 ? `<path d="M24,106 A86,86 0 0 1 ${x.toFixed(2)},${y.toFixed(2)}" fill="none" stroke="${c}" stroke-width="18" stroke-linecap="round"/>` : ''}<text x="110" y="94" text-anchor="middle" font-size="30" font-weight="800" fill="#111a66">${fr(r * 100, 0)} %</text><text x="110" y="114" text-anchor="middle" font-size="11" fill="#6b7392">occupé</text>`, 220, 124);
+      svg.style.width = '230px'; svg.style.flex = 'none';
+      out.push(el('div', { class: 'mod-jauge' }, svg, el('div', { class: 'mod-lignes' }, parts.map((p) => ligneBarre(p, tot)))));
+    } else {
+      out.push(el('div', { class: 'mod-pad' }, el('div', { class: 'barre100 epais' }, parts.filter((p) => p.v > 0).map((p) => el('i', { style: 'width:' + (p.v / tot * 100) + '%;background:' + p.c, title: p.nom + ' : ' + fr(p.v) }, p.v / tot > 0.08 ? fr(p.v / tot * 100, 0) + ' %' : ''))), el('div', { class: 'mod-lignes' }, parts.map((p) => ligneBarre(p, tot)))));
+    }
+    if (mixte) { const totS = parSte.reduce((t, p) => t + p.v, 0) || 1; out.push(el('div', { class: 'mod-pad' }, el('div', { class: 'mod-lib' }, 'Occupé par société'), el('div', { class: 'mod-lignes', style: 'margin-top:8px' }, parSte.map((p) => ligneBarre({ ...p, nom: nomSte(p.nom), c: STES[nomSte(p.nom)] || p.c, badge: true }, totS))))); }
+    return out;
+  }
+  function graphiqueModerne(g, cle, b) {
+    const c = themeDe(b.id)[1];
+    if (g.type === 'doughnut') return anneauModerne(g, c);
+    const ser = g.donnees.datasets.map((d) => { let v; if (g.type === 'stack-bars') { const n = Math.max(0, ...(d.sets || []).map((s) => (s.values || []).length)); v = Array.from({ length: n }, (_, i) => (d.sets || []).reduce((t, s) => t + (+(s.values || [])[i] || 0), 0)); } else v = (d.data || []).map((x) => +x || 0); return { an: anDe(d), v, sets: d.sets || null }; });
+    if (!ser.length || ser.some((s) => s.an === null)) return graphiqueClassique(g, cle);
+    const toutes = [...new Set(ser.map((s) => s.an))].sort((a, z) => a - z), vues = (anneesVues[cle] || toutes.slice(-2)).filter((a) => toutes.indexOf(a) >= 0);
+    const cur = ser.find((s) => s.an === toutes[toutes.length - 1]), prev = toutes.length > 1 ? ser.find((s) => s.an === toutes[toutes.length - 2]) : null;
+    const autres = ser.filter((s) => s !== cur && s !== prev && vues.indexOf(s.an) >= 0).sort((a, z) => z.an - a.an);
+    const n = Math.max(...ser.map((s) => s.v.length)); if (!n) return graphiqueClassique(g, cle);
+    const mono = (v) => v.length > 3 && v.every((x, i) => !i || x >= v[i - 1]), cumul = /cumulative/.test(b.id) || ser.every((s) => mono(s.v));
+    const maintenant = new Date(), enCours = cur.an === maintenant.getFullYear();
+    let k = n - 1;
+    if (enCours) { if (n === 12) k = maintenant.getMonth(); else if (n >= 52) k = Math.min(n - 1, semaineDuJour() - 1); else { k = 0; cur.v.forEach((x, i) => { if (x) k = i; }); } }
+    const jusqua = (s, j) => (!s ? null : cumul ? (s.v[Math.min(j, s.v.length - 1)] || 0) : s.v.slice(0, j + 1).reduce((t, x) => t + x, 0));
+    const totalAn = (s) => (cumul ? Math.max(0, ...s.v) : s.v.reduce((t, x) => t + x, 0));
+    const ytd = jusqua(cur, k), ytdP = jusqua(prev, k), evo = ytdP ? ytd / ytdP - 1 : null;
+    const unite = ((nombreDe(b.gros || '') || [])[1] || '').trim(), u = unite && !/^ce\b/.test(unite) ? ' ' + unite : '';
+    const inverse = /indisponibilities|temporary/.test(b.id), ton = (e) => (e === null ? '' : (e >= 0) !== inverse ? 'hausse' : 'baisse');
+    const periode = n === 12 ? (enCours ? 'à fin ' + MOIS_L[k] : 'sur l\'année') : n >= 52 ? (enCours ? 'à la semaine ' + (k + 1) : 'sur l\'année') : '';
+    const tete = el('div', { class: 'mod-tete' },
+      el('div', {}, el('div', { class: 'mod-lib' }, (cumul ? 'Cumul ' : 'Total ') + cur.an + ' ' + periode), el('div', { class: 'mod-val' }, court(ytd) + u)),
+      evo !== null ? el('div', { class: 'mod-evo ' + ton(evo) }, (evo >= 0 ? '▲ +' : '▼ −') + fr(Math.abs(evo * 100), 1) + ' %', el('small', {}, 'vs ' + prev.an + ' à la même date (' + court(ytdP) + u + ')')) : null,
+      prev ? el('div', { class: 'mod-ref' }, el('div', { class: 'mod-lib' }, prev.an + ' entier'), el('div', { class: 'mod-val petit' }, court(totalAn(prev)) + u)) : null);
+    // courbes
+    const L = 640, H = 206, G = 40, D2 = 8, B = 174, HT = 150, pas = (L - G - D2) / n;
+    const max = Math.max(1, ...[cur, prev, ...autres].filter(Boolean).flatMap((s) => s.v)) * 1.08, m = max / 1.08;
+    const X = (i) => G + pas * (i + 0.5), Y = (v) => B - v / max * HT, pts = (s, fin) => s.v.slice(0, fin + 1).map((v, i) => [X(i), Y(v)]);
+    const gid = 'dg' + Math.random().toString(36).slice(2, 9);
+    let code = `<defs><linearGradient id="${gid}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${c}" stop-opacity=".32"/><stop offset="1" stop-color="${c}" stop-opacity="0"/></linearGradient></defs>`;
+    code += [0, 0.5, 1].map((r) => `<line x1="${G}" x2="${L - D2}" y1="${Y(m * r).toFixed(1)}" y2="${Y(m * r).toFixed(1)}" stroke="#e6e9f4"${r ? ' stroke-dasharray="3 5"' : ''}/><text x="${G - 7}" y="${(Y(m * r) + 3.5).toFixed(1)}" text-anchor="end" font-size="9.5" fill="#9aa3c0">${ech(court(m * r))}</text>`).join('');
+    autres.forEach((s) => { code += `<path d="${lisse(pts(s, s.v.length - 1), B)}" fill="none" stroke="#cfd5e6" stroke-width="1.3"/>`; });
+    if (prev) code += `<path d="${lisse(pts(prev, prev.v.length - 1), B)}" fill="none" stroke="#8f98b8" stroke-width="1.8" stroke-dasharray="5 5"/>`;
+    const pc = pts(cur, k);
+    if (pc.length) { const ligne = lisse(pc, B), z = pc[pc.length - 1]; code += `<path d="${ligne} L${z[0].toFixed(1)},${B} L${pc[0][0].toFixed(1)},${B} Z" fill="url(#${gid})"/><path d="${ligne}" fill="none" stroke="${c}" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/><circle cx="${z[0].toFixed(1)}" cy="${z[1].toFixed(1)}" r="4.5" fill="#fff" stroke="${c}" stroke-width="2.4"/>`; }
+    code += Array.from({ length: n }, (_, i) => (n <= 12 || i % 4 === 0 ? `<text x="${X(i).toFixed(1)}" y="${B + 19}" text-anchor="middle" font-size="9.5" fill="${enCours && i === k ? '#111a66' : '#9aa3c0'}" font-weight="${enCours && i === k ? 800 : 500}">${abscisse(n, i)}</text>` : '')).join('');
+    code += `<line class="guide" x1="0" x2="0" y1="${B - HT - 6}" y2="${B}" stroke="#111a66" stroke-opacity=".22" visibility="hidden"/>`;
+    const svg = dessin(code, L, H), bulle = el('div', { class: 'mod-bulle' }), zone = el('div', { class: 'graph mod-graph' }, svg, bulle);
+    const nomPer = (i) => (n === 12 ? MOIS_L[i].replace(/^./, (x) => x.toUpperCase()) : n >= 52 ? 'Semaine ' + (i + 1) : 'Période ' + (i + 1));
+    svg.addEventListener('mousemove', (e) => {
+      const r = svg.getBoundingClientRect(), i = Math.max(0, Math.min(n - 1, Math.floor(((e.clientX - r.left) / r.width * L - G) / pas))), gl = svg.querySelector('.guide');
+      gl.setAttribute('x1', X(i)); gl.setAttribute('x2', X(i)); gl.setAttribute('visibility', 'visible');
+      const e2 = prev && i <= k && prev.v[i] ? cur.v[i] / prev.v[i] - 1 : null;
+      bulle.replaceChildren(el('div', { class: 't' }, nomPer(i)), ...[cur, prev, ...autres].filter(Boolean).filter((s) => !(s === cur && i > k)).map((s) => el('div', { class: 'l' }, el('i', { style: 'background:' + (s === cur ? c : s === prev ? '#8f98b8' : '#cfd5e6') }), el('span', {}, String(s.an)), el('b', {}, fr(s.v[i] || 0) + u))), e2 !== null ? el('div', { class: 'e ' + ton(e2) }, (e2 >= 0 ? '+' : '−') + fr(Math.abs(e2 * 100), 1) + ' % vs ' + prev.an) : '');
+      bulle.style.display = 'block'; const w = bulle.offsetWidth, px = X(i) / L * r.width; bulle.style.left = Math.max(0, Math.min(r.width - w, px - w / 2)) + 'px';
+    });
+    svg.addEventListener('mouseleave', () => { bulle.style.display = 'none'; const gl = svg.querySelector('.guide'); if (gl) gl.setAttribute('visibility', 'hidden'); });
+    const leg = el('div', { class: 'leg' }, el('span', {}, el('i', { style: 'background:' + c }), el('b', {}, String(cur.an))), prev ? el('span', {}, el('i', { class: 'tiret' }), el('b', {}, String(prev.an))) : null, autres.map((s) => el('span', {}, el('i', { style: 'background:#cfd5e6' }), String(s.an))), menuAnnees(cle, toutes, vues));
+    // évolution mois par mois
+    let bande = null;
+    if (prev && n === 12) {
+      const mens = (s) => (cumul ? s.v.map((x, i) => x - (i ? s.v[i - 1] : 0)) : s.v), mc = mens(cur), mp = mens(prev);
+      bande = el('div', { class: 'mod-bande', title: 'Évolution de chaque mois contre le même mois de ' + prev.an }, Array.from({ length: 12 }, (_, i) => {
+        if (i > k) return el('div', { class: 'cel futur' }, el('span', {}, MOIS[i]), el('b', {}, '·'));
+        const e3 = mp[i] ? mc[i] / mp[i] - 1 : null, f = e3 === null ? 0 : Math.min(1, Math.abs(e3) / 0.4), bon = ton(e3) === 'hausse';
+        return el('div', { class: 'cel', title: MOIS_L[i] + ' ' + cur.an + ' : ' + fr(mc[i]) + u + ' · ' + prev.an + ' : ' + fr(mp[i]) + u, style: e3 === null ? null : 'background:' + (bon ? 'rgba(34,105,58,' : 'rgba(180,35,24,') + (0.08 + f * 0.3).toFixed(2) + ')' }, el('span', {}, MOIS[i]), el('b', {}, e3 === null ? '—' : (e3 >= 0 ? '+' : '−') + Math.round(Math.abs(e3 * 100)) + ' %'));
+      }));
+    }
+    // répartition de l'année en cours
+    let rep = null;
+    if (cur.sets && cur.sets.length > 1) {
+      const parts = cur.sets.map((s) => ({ nom: s.label, c: opaque(s.color), v: cumul ? (+(s.values || [])[Math.min(k, (s.values || []).length - 1)] || 0) : (s.values || []).slice(0, k + 1).reduce((t, x) => t + (+x || 0), 0) })), tot = parts.reduce((t, p) => t + p.v, 0);
+      if (tot > 0) rep = el('div', { class: 'mod-pad' }, el('div', { class: 'mod-lib' }, 'Répartition ' + cur.an + ' ' + periode), el('div', { class: 'barre100' }, parts.filter((p) => p.v > 0).map((p) => el('i', { style: 'width:' + (p.v / tot * 100) + '%;background:' + p.c, title: p.nom + ' : ' + fr(p.v) + u }))), el('div', { class: 'leg2' }, parts.map((p) => el('span', {}, el('i', { style: 'background:' + p.c }), p.nom, el('b', {}, fr(p.v / tot * 100, 0) + ' %'), el('em', {}, court(p.v) + u)))));
+    }
+    return [tete, zone, leg, bande, rep];
+  }
+  function graphique(g, cle, b) { return style === 'moderne' && b ? graphiqueModerne(g, cle, b) : graphiqueClassique(g, cle); }
+  function graphiqueClassique(g, cle) {
     let D = g.donnees.datasets; const L = 640, H = 230, G = 44, B = 196;
     let choixAns = null;
     if (g.type !== 'doughnut' && D.length && D.every((d) => anDe(d) !== null)) {
@@ -368,7 +486,7 @@
     else corps = [
       b.gros ? el('div', { class: 'gros' }, el('b', {}, beau(b.gros)), el('span', {}, b.note)) : null,
       b.chiffres.length ? el('div', { class: 'stats' }, b.chiffres.map((k) => el('div', { class: 'stat' }, el('div', { class: 'n' }, k.nom), el('div', { class: 'v' + (k.rouge ? ' rouge' : '') }, k.valeur), k.plus ? el('div', { class: 'p' }, k.plus) : null))) : null,
-      b.graphiques.flatMap((g, i) => graphique(g, b.id + '/' + i)),
+      b.graphiques.flatMap((g, i) => graphique(g, b.id + '/' + i, b)),
       b.tableau ? el('div', { style: 'padding:0 20px 14px' }, el('table', { class: 'mini' }, el('thead', {}, el('tr', {}, b.tableau.entetes.map((t, i) => el('th', { class: i ? 'd' : '' }, t)))), el('tbody', {}, b.tableau.lignes.map((l) => el('tr', {}, l.map((v, i) => el('td', { class: i ? 'd' + (i === 3 ? ' montant' : '') : '' }, i === 0 && STES[v] ? el('span', { class: 'ste', style: 'background:' + STES[v] }, v) : v))))))) : null,
       b.lien ? el('div', { style: 'padding:0 20px 14px' }, el('a', { class: 'detail', href: b.lien[1], onclick: (e) => { e.preventDefault(); const a = document.getElementById('ext-ulyss-raccourci-commercial'); if (a) a.click(); } }, b.lien[0] + ' ›')) : null,
       !b.gros && !b.chiffres.length && !b.graphiques.length ? el('div', { class: 'rien' }, 'Ce bloc ne contient rien que l\'extension sache lire : ouvrez le tableau de bord d\'Ulyss pour le voir.') : null];
@@ -407,7 +525,7 @@
     const sSte = el('select', { 'aria-label': 'Société', title: 'Filtre par société d\'Ulyss', onchange: () => { choix.ste = sSte.value; charger(); } }, el('option', { value: '' }, 'Toutes les sociétés'), profil.structures.map((x) => el('option', { value: x[0] }, x[1]))); sSte.value = choix.ste || '';
     const tete = el('div', { class: 'haut' },
       el('div', {}, el('h1', {}, 'Tableau de bord'), el('div', { class: 'sous' }, quand ? 'Mêmes informations que le tableau de bord d\'Ulyss · lu à ' + ('0' + quand.getHours()).slice(-2) + ' h ' + ('0' + quand.getMinutes()).slice(-2) : 'Mêmes informations que le tableau de bord d\'Ulyss')),
-      el('div', { class: 'outils' }, profil.structures.length ? sSte : null, bMaj));
+      el('div', { class: 'outils' }, el('div', { class: 'seg', title: 'Style des graphiques' }, [['classique', 'Classique'], ['moderne', 'Moderne (essai)']].map(([v, t]) => el('button', { 'aria-pressed': String(style === v), onclick: () => { if (style === v) return; style = v; try { localStorage.setItem(CLE_STYLE, v); } catch (e) {} dessiner(); } }, t))), profil.structures.length ? sSte : null, bMaj));
     const onglets = profil.profils.length > 1 ? el('div', { class: 'onglets', role: 'tablist', 'aria-label': 'Profil du tableau de bord' }, profil.profils.map((p) => el('button', { role: 'tab', 'aria-selected': String(p[0] === profil.scope), onclick: () => { if (p[0] === profil.scope || enCharge) return; choix.scope = p[0]; blocs = null; zone.scrollTop = 0; charger(); } }, p[1]))) : null;
     if (!blocs || !blocs.length) { zone.replaceChildren(tete, ...(onglets ? [onglets] : []), el('div', { class: 'msg' + (message ? ' err' : '') }, message || (blocs ? 'Ulyss ne propose aucun bloc à ce profil.' : 'Lecture du tableau de bord d\'Ulyss…'))); return; }
     const ordre = [], reste = blocs.filter((b) => !THEMES.some((t) => t[2].indexOf(b.id) >= 0));
