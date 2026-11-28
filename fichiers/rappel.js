@@ -584,6 +584,7 @@
   // Insertion du bouton à côté de « Affichage »
   // ---------------------------------------------------------------------------
   function insererBouton() {
+    if (window.__extUlyssActif && !window.__extUlyssActif('rappel')) return;
     if (!HOTES.test(location.hostname) && !window.__extUlyssRdvEssai) return;
     if (!CHEMIN.test(location.pathname)) return;
     if (document.getElementById(ID_BOUTON)) return;

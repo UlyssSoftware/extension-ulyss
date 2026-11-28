@@ -206,6 +206,7 @@
     return releveEnCours;
   }
   async function releveDuMatin() {
+    if (window.__extUlyssActif && !window.__extUlyssActif('avis')) return;
     if (window.top !== window || (!HOTES.test(location.hostname) && !window.__extUlyssRdvEssai)) return;
     if (!document.getElementById('global-sidebar')) return;                     // pas connecté à Ulyss
     const auj = iso(new Date()), m = memo();
@@ -472,7 +473,7 @@
     (document.getElementById('ext-ulyss-raccourci-charge') || liens[0]).insertAdjacentElement('afterend', r);
   }
   if (window.__extUlyssAvisEssai) Object.assign(window.__extUlyssAvisEssai, { rapprocher, rattacher, chercherDossiers, datesDuDossier, relever });
-  const poser = () => { insererRaccourci(); };
+  const poser = () => { if (window.__extUlyssActif && !window.__extUlyssActif('avis')) return; insererRaccourci(); };
   document.addEventListener('turbo:load', poser);
   new MutationObserver(poser).observe(document.documentElement, { childList: true, subtree: true });
   poser();

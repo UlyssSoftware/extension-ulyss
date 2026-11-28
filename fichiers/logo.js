@@ -101,6 +101,7 @@
 
   let prevu = false;
   function poser() {
+    if (window.__extUlyssActif && !window.__extUlyssActif('logos')) return;
     if (prevu) return;
     prevu = true;
     requestAnimationFrame(() => { prevu = false; try { barre(); centre(); } catch (e) { /* jamais bloquant */ } });

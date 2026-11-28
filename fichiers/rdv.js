@@ -86,6 +86,7 @@
   // ---------- Bouton ----------
   var vu = null;
   function poserBouton() {
+    if (window.__extUlyssActif && !window.__extUlyssActif('rdv')) return;
     if (!HOTES.test(location.hostname) && !envoiEssai) return;
     var m = location.pathname.match(CHEMIN);
     var existant = document.getElementById('gc-rdv-bouton');
@@ -341,6 +342,7 @@
     return { modale: modale, form: form, natif: natif, actif: type === '1' && !!dossier.value && SOCIETES.indexOf(lettre) >= 0 };
   }
   function poserBoutonAgenda() {
+    if (window.__extUlyssActif && !window.__extUlyssActif('rdv')) return;
     if (!HOTES.test(location.hostname) && !envoiEssai) return;
     var e = etatAgenda();
     if (!e) return;

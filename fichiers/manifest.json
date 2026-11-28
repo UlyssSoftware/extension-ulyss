@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Extension Ulyss",
-  "version": "1.8.29",
+  "version": "1.8.30",
   "description": "Outils Limo Dem dans Ulyss : chiffrage par la grille ou par forfait, confirmation de rendez-vous, rappel du déménagement et demande d'avis par e-mail, taux de charge du Planning, module Avis clients.",
   "permissions": [
     "storage",
@@ -15,6 +15,7 @@
         "https://fraisseix.staging.unova.fr/*"
       ],
       "js": [
+        "modules.js",
         "engine.js",
         "content.js",
         "rdv.js",

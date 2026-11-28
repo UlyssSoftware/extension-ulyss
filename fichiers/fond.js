@@ -173,7 +173,7 @@ function envoyerRdv(donnees, cible) {
     // Serveur /extension-ulyss/ : un sous-dossier par action (25/11/2026). cible « rappel » → rappel-demenagement/rappel.php
     // cible « charge » → charge/index.php (taux de charge du Planning, 26/11/2026)
     // cibles « avis » → avis/index.php (module Avis clients) et « demande-avis » → demande-avis/avis.php (26/11/2026)
-    var DOSSIERS = { rappel: 'rappel-demenagement/rappel.php', charge: 'charge/index.php', avis: 'avis/index.php', 'demande-avis': 'demande-avis/avis.php', deplacement: 'deplacement/index.php' };
+    var DOSSIERS = { rappel: 'rappel-demenagement/rappel.php', charge: 'charge/index.php', avis: 'avis/index.php', 'demande-avis': 'demande-avis/avis.php', deplacement: 'deplacement/index.php', modules: 'modules/index.php' };
     var url = DOSSIERS[cible] ? String(c.url).replace(/confirmation-rdv\/envoyer\.php$/, DOSSIERS[cible]) : c.url;
     return fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Cle': c.cle }, body: JSON.stringify(donnees || {}), cache: 'no-store' })
       .then(function (rep) { return rep.text().then(function (t) { var j = null; try { j = JSON.parse(t); } catch (e) {} return { ok: true, statut: rep.status, corps: j, brut: j ? '' : t.slice(0, 300) }; }); });

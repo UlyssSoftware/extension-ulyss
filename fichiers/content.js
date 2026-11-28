@@ -804,7 +804,8 @@
   }
   // Un clic ailleurs dans la page replie le détail des moyens.
   document.addEventListener('click', function (e) { var b = document.getElementById('gc-coherence'), d = b && b.querySelector('details[open]'); if (d && !b.contains(e.target)) d.removeAttribute('open'); });
-  var tout = function () { poserBouton(); poserCoherence(); poserPastilles(); poserVersion(); };
+  // Module « chiffrage » désactivable (modules.js) ; le bouton de version reste, il sert aux mises à jour.
+  var tout = function () { poserVersion(); if (window.__extUlyssActif && !window.__extUlyssActif('chiffrage')) return; poserBouton(); poserCoherence(); poserPastilles(); };
   new MutationObserver(tout).observe(document.documentElement, { childList: true, subtree: true, attributes: true, attributeFilter: ['data-events'] });
   tout();
 

@@ -199,6 +199,7 @@
   // Un seul passage par image affichée, et seulement sur les deux écrans concernés.
   let prevu = false;
   function passer() {
+    if (window.__extUlyssActif && !window.__extUlyssActif('deplacement')) return;
     if (prevu || window.top !== window || (!HOTES.test(location.hostname) && !essai())) return;
     const p = location.pathname;
     if (!PHASES.test(p) && !p.startsWith('/exploitation_requirements') && !document.getElementById(ID_COCHE)) return;

@@ -319,6 +319,7 @@
   const verdicts = new Map();   // dossier → promesse « déménagement terminé » (une seule lecture des dates par dossier)
   const voisinDevis = () => document.querySelector('#tab-content a[href*="address_send_by_mail"]') || document.querySelector('#tab-content a[href*="/download"]');
   function insererBouton() {
+    if (window.__extUlyssActif && !window.__extUlyssActif('demande-avis')) return;
     if (!HOTES.test(location.hostname) && !window.__extUlyssRdvEssai) return;
     const m = location.pathname.match(CHEMIN);
     const deja = document.getElementById(ID_BOUTON);

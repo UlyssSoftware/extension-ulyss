@@ -371,6 +371,7 @@
   let prechargeLance = false;
   async function precharger() {
     if (prechargeLance || window.top !== window) return;
+    if (window.__extUlyssActif && !window.__extUlyssActif('charge')) return;
     if (!HOTES.test(location.hostname) && !window.__extUlyssRdvEssai) return;
     if (!document.getElementById('global-sidebar')) return;          // pas connecté à Ulyss
     const auj = aujourdhui(), m = memo(), poste = idPoste();
@@ -486,7 +487,7 @@
     r.addEventListener('click', (e) => { e.preventDefault(); e.stopPropagation(); ouvrir(); });
     liens[0].insertAdjacentElement('afterend', r);   // juste après le premier module (Dashboard)
   }
-  const poser = () => { insererBouton(); insererRaccourci(); };
+  const poser = () => { if (window.__extUlyssActif && !window.__extUlyssActif('charge')) return; insererBouton(); insererRaccourci(); };
   document.addEventListener('turbo:load', poser);
   new MutationObserver(poser).observe(document.documentElement, { childList: true, subtree: true });
   poser();
