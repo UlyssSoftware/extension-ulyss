@@ -1,5 +1,5 @@
 {
- "version": "1.8.27",
+ "version": "1.8.28",
  "date": "2026-11-28",
  "fichiers": [
   "LISEZMOI.txt",
@@ -15,6 +15,7 @@
   "maps-avis.js",
   "rappel.js",
   "rdv.js",
+  "tableau-de-bord.js",
   "tarifs.json"
  ],
  "empreintes": {
@@ -27,11 +28,12 @@
   "engine.js": "c6fa6b1139b9ab90d511059d6abc6221779e9f9dc062433eb0a6b0b3308a0a7c",
   "fond.js": "1685e1a076a1fb7c9d509c5a6cc5b4bc2aa248b97cfc20b2b7bdac8d6f975490",
   "logo.js": "18cd3a742f30bea47ce2c56880e604af87f58e635a9e3f20035ba1e0cc6f741c",
-  "manifest.json": "cab045072f50889a5361a7e4766d31460740d407006661d03f7848a91e377168",
+  "manifest.json": "81782a9c2d7d6cfff0a8e25578a4d8327506bfbe57377ebaf7fcc12f46da2250",
   "maps-avis.js": "06f1c02959293be600442df1493d81e15404fdcf58c678e065b44b3b10902a63",
   "rappel.js": "5e14e110b7d4ca041dc3bc03cd631e84f81c541340bb0875c8b84978c33479c5",
   "rdv.js": "6d9f284cf0e1a4cf3cf33b393ea6898255ff626ba7078fc0a0f42e2672462650",
+  "tableau-de-bord.js": "232cd155730e683bd9614248481beaf895f4ce825de5e90d60e1bc58476d385a",
   "tarifs.json": "d52b3d2f8c784ae85e0c2dcf0c976190480e0c939c34073ad6c60924b01febbe"
  },
- "reference": "1ca158030229ac8eca998f83097d6f8333204d3b"
+ "reference": "ce66f1935c28cbf2dda5160423f8267eb6f8bc8c"
 }
