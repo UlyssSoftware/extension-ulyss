@@ -5,7 +5,9 @@
  *      · « Sur ce poste » : chacun peut couper pour lui un module resté actif ; ce choix ne quitte pas le poste.
  *      · « Pour tout le monde » : demande le code d'accès de l'extension (celui des tarifs, que seul Guillaume connaît) ;
  *        le réglage est gardé sur ulyss-software.com/extension-ulyss/modules/ et suivi par tous les postes.
- *      · Un module coupé pour tout le monde ne peut pas être rallumé sur un poste.
+ *      · Un module coupé pour tout le monde ne peut pas être rallumé sur un poste… sauf avec le code d'accès : l'interrupteur
+ *        « Sur ce poste » d'un module coupé pour tous se rallume alors pour CE poste seulement (28/11, 13 h 01 : couper pour
+ *        les autres mais pas pour soi, pour faire des essais). Cette exception reste sur le poste (liste « exempt »).
  *  - Les autres scripts demandent window.__extUlyssActif('<module>') avant d'agir : réponse immédiate, lue dans la mémoire du
  *    poste (le réglage commun y est recopié au plus toutes les 5 minutes). Un changement s'applique au rechargement de la page.
  *  - Le serveur ne reçoit jamais le code : seulement une preuve dérivée (PBKDF2), calculée ici après contrôle du code.
@@ -26,11 +28,12 @@
     ['deplacement', 'Déplacement', 'Coche de la phase et liseré rouge au Planning'],
     ['logos', 'Logos', 'Logo de la barre latérale et logo en haut des pages'],
   ];
-  const lire = () => { try { const m = JSON.parse(localStorage.getItem(CLE) || 'null'); return m && typeof m === 'object' ? { coupes: m.coupes || [], poste: m.poste || [], quand: m.quand || 0 } : { coupes: [], poste: [], quand: 0 }; } catch (e) { return { coupes: [], poste: [], quand: 0 }; } };
+  const lire = () => { try { const m = JSON.parse(localStorage.getItem(CLE) || 'null'); return m && typeof m === 'object' ? { coupes: m.coupes || [], poste: m.poste || [], exempt: m.exempt || [], quand: m.quand || 0 } : { coupes: [], poste: [], exempt: [], quand: 0 }; } catch (e) { return { coupes: [], poste: [], exempt: [], quand: 0 }; } };
   const garder = (m) => { try { localStorage.setItem(CLE, JSON.stringify(m)); } catch (e) {} };
   // État au chargement de la page : c'est lui qui vaut jusqu'au rechargement (pas de bouton à moitié retiré).
   const depart = lire();
-  window.__extUlyssActif = (nom) => depart.coupes.indexOf(nom) < 0 && depart.poste.indexOf(nom) < 0;
+  // Actif si le module n'est pas coupé pour tous (ou si ce poste en est exempté), et pas coupé sur ce poste.
+  window.__extUlyssActif = (nom) => (depart.coupes.indexOf(nom) < 0 || depart.exempt.indexOf(nom) >= 0) && depart.poste.indexOf(nom) < 0;
 
   const EXT = (() => { try { return typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.id ? chrome.runtime : null; } catch (e) { return null; } })();
   function demander(msg) {
@@ -81,7 +84,7 @@
     .inter{appearance:none;-webkit-appearance:none;width:40px;height:22px;border-radius:999px;background:#d5dae3;position:relative;cursor:pointer;margin:0;transition:background .15s;border:0}
     .inter::after{content:'';position:absolute;top:3px;left:3px;width:16px;height:16px;border-radius:50%;background:#fff;transition:left .15s;box-shadow:0 1px 2px rgba(0,0,0,.2)}
     .inter:checked{background:#2d7d8a} .inter:checked::after{left:21px} .inter:disabled{opacity:.4;cursor:default}
-    .inter.tous:checked{background:#1f2a44}
+    .inter.tous:checked{background:#1f2a44} .inter.exempt:checked{background:#c2410c}
     .code{display:flex;gap:8px;align-items:center;margin:0 26px 12px;padding:12px 14px;background:#f5f7fa;border-radius:12px}
     .code input{flex:1;border:1px solid #d5dae3;border-radius:8px;padding:8px 10px;font-size:13px;color:#1f2a44}
     .btn{border:0;border-radius:10px;padding:8px 14px;font-weight:600;cursor:pointer;font-size:12.5px;background:#1f2a44;color:#fff} .btn:disabled{opacity:.5;cursor:default}
@@ -107,7 +110,7 @@
     document.body.append(hote);
     const racine = hote.attachShadow({ mode: 'open' });
     racine.append(el('style', {}, CSS));
-    let change = false, preuve = '', attente = null;   // attente = réglage « pour tout le monde » en suspens tant que le code n'est pas donné
+    let change = false, preuve = '', attente = null;   // attente = action en suspens tant que le code n'est pas donné : [module, actif] pour tous, ou [module, 'exempt']
     const fermer = () => { hote.remove(); if (change) location.reload(); };
     const msg = el('span', { class: 'msg' }), lignes = el('div', {}), zoneCode = el('div', {});
     const dire = (t, genre) => { msg.textContent = t || ''; msg.className = 'msg' + (genre ? ' ' + genre : ''); };
@@ -133,16 +136,24 @@
         preuve = await preuveDuCode(champ.value);
         zoneCode.replaceChildren();
         const a = attente; attente = null;
-        if (a) reglerPourTous(a[0], a[1]); else dire('');
+        if (a && a[1] === 'exempt') exempter(a[0]); else if (a) reglerPourTous(a[0], a[1]); else dire('');
       };
       const bouton = el('button', { class: 'btn', onclick: valider }, 'Valider');
       champ.addEventListener('keydown', (e) => { if (e.key === 'Enter') valider(); });
-      zoneCode.replaceChildren(el('div', { class: 'code' }, el('span', {}, 'Modifier pour tout le monde demande le code d\'accès :'), champ, bouton,
+      zoneCode.replaceChildren(el('div', { class: 'code' }, el('span', {}, 'Code d\'accès demandé :'), champ, bouton,
         el('button', { class: 'btn sec', onclick: () => { attente = null; zoneCode.replaceChildren(); dessiner(); dire(''); } }, 'Annuler')));
       champ.focus();
     }
+    /** Garde actif sur ce poste un module coupé pour tout le monde (code d'accès déjà contrôlé). */
+    function exempter(nom) {
+      const x = lire(); if (x.exempt.indexOf(nom) < 0) x.exempt.push(nom); x.poste = x.poste.filter((n) => n !== nom); garder(x);
+      change = true; dire('Gardé actif sur ce poste seulement ; il reste coupé pour les autres. La page se recharge à la fermeture.', 'ok');
+      dessiner();
+    }
     function dessiner() {
       const m = lire();
+      // Une exception n'a de sens que tant que le module est coupé pour tous.
+      if (m.exempt.some((n) => m.coupes.indexOf(n) < 0)) { m.exempt = m.exempt.filter((n) => m.coupes.indexOf(n) >= 0); garder(m); }
       lignes.replaceChildren(...MODULES.map(([nom, titre, desc]) => {
         const coupe = m.coupes.indexOf(nom) >= 0, perso = m.poste.indexOf(nom) >= 0;
         const tous = el('input', { type: 'checkbox', class: 'inter tous', title: 'Activer ou désactiver pour tous les postes (code d\'accès demandé)', onchange: () => {
@@ -150,12 +161,19 @@
           if (preuve) reglerPourTous(nom, voulu); else { attente = [nom, voulu]; demanderCode(); }
         } });
         tous.checked = !coupe;
-        const poste = el('input', { type: 'checkbox', class: 'inter', title: coupe ? 'Désactivé pour tout le monde' : 'Activer ou désactiver sur ce poste seulement', onchange: () => {
+        const exempte = coupe && m.exempt.indexOf(nom) >= 0;
+        const poste = el('input', { type: 'checkbox', class: 'inter' + (exempte ? ' exempt' : ''), title: exempte ? 'Coupé pour tout le monde, gardé actif sur ce poste (code d\'accès)' : coupe ? 'Coupé pour tout le monde. Le rallumer sur ce poste seulement demande le code d\'accès.' : 'Activer ou désactiver sur ce poste seulement', onchange: () => {
+          if (coupe) {
+            // Module coupé pour tous : le garder actif ici demande le code ; l'éteindre retire simplement l'exception.
+            if (!poste.checked) { const x = lire(); x.exempt = x.exempt.filter((n) => n !== nom); garder(x); change = true; dire('Exception retirée : coupé sur ce poste comme pour les autres.', 'ok'); dessiner(); return; }
+            if (preuve) exempter(nom); else { attente = [nom, 'exempt']; demanderCode(); }
+            return;
+          }
           const x = lire(); x.poste = x.poste.filter((n) => n !== nom); if (!poste.checked) x.poste.push(nom); garder(x);
           change = true; dire('Enregistré pour ce poste. La page se recharge à la fermeture.', 'ok');
         } });
-        poste.checked = !coupe && !perso; poste.disabled = coupe;
-        return el('div', { class: 'grille ligne' }, el('div', {}, el('div', { class: 'nom' }, titre), el('div', { class: 'desc' }, desc)), el('div', { class: 'c' }, tous), el('div', { class: 'c' }, poste));
+        poste.checked = coupe ? exempte : !perso;
+        return el('div', { class: 'grille ligne' }, el('div', {}, el('div', { class: 'nom' }, titre), el('div', { class: 'desc' }, desc + (exempte ? ' — coupé pour les autres, actif ici' : coupe ? ' — coupé pour tout le monde' : ''))), el('div', { class: 'c' }, tous), el('div', { class: 'c' }, poste));
       }));
     }
     const version = el('span', { class: 'version' }, EXT ? 'Version ' + EXT.getManifest().version : '');
@@ -168,7 +186,7 @@
     } }, 'Vérifier les mises à jour');
     racine.append(el('div', { class: 'voile', onclick: (e) => { if (e.target === e.currentTarget) fermer(); } },
       el('div', { class: 'fen' },
-        el('div', { class: 'tete' }, el('div', {}, el('b', {}, 'Extension Ulyss'), el('small', {}, 'Activer ou désactiver chaque module. « Sur ce poste » ne concerne que vous. « Pour tout le monde » s\'impose à tous les postes et demande le code d\'accès : un module coupé pour tous ne peut pas être rallumé sur un poste.')), el('button', { class: 'x', title: 'Fermer', onclick: fermer }, '✕')),
+        el('div', { class: 'tete' }, el('div', {}, el('b', {}, 'Extension Ulyss'), el('small', {}, 'Activer ou désactiver chaque module. « Sur ce poste » ne concerne que vous. « Pour tout le monde » s\'impose à tous les postes et demande le code d\'accès : un module coupé pour tous ne peut être rallumé sur un poste qu\'avec ce code.')), el('button', { class: 'x', title: 'Fermer', onclick: fermer }, '✕')),
         zoneCode,
         el('div', { class: 'grille entetes' }, el('span', {}, 'Module'), el('span', {}, 'Pour tout le monde'), el('span', {}, 'Sur ce poste')),
         lignes,
