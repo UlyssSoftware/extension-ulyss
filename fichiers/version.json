@@ -1,5 +1,5 @@
 {
- "version": "1.8.38",
+ "version": "1.8.39",
  "date": "2026-11-28",
  "fichiers": [
   "LISEZMOI.txt",
@@ -28,13 +28,13 @@
   "charge.js": "c4e31f4f546f1ac2dd18c3f85dc53450a086347a22a33c823715d8cec52b1e0a",
   "commercial.js": "eb1b86784a2269250ff7b490a10fcd86456130c8ecb725e02270a1edbf1c0ff2",
   "content.js": "e33a7f3f9dcd2f687a23ea5ab061940200180f65382d6cf95e2ba8276def2734",
-  "dashboard2.js": "ced6e427f5a579c7efa66afc9d290ffa75c7f77d43d42270135296dedee3b209",
+  "dashboard2.js": "05e89751bc74722a443c44cbb1966353289469e3726c5966f7087379fed7949c",
   "demande-avis.js": "967b092262375bf5b1f4bd4ec610f4bc3756af406598614f03e26c8747923c6f",
   "deplacement.js": "cf1ddf48eb7e940ea6b1ee1472be94ce21fd57502ce282c97dd61b4b6489a1c4",
   "engine.js": "c6fa6b1139b9ab90d511059d6abc6221779e9f9dc062433eb0a6b0b3308a0a7c",
   "fond.js": "eaf3c59506360860f272ae51157d8a675269b65d7223076aab456a8b2ecff306",
   "logo.js": "c7573bc82edeb570fdfa36c8ee8163646959ad425a551d873dbbd66462622959",
-  "manifest.json": "96bcf066af6c7cf5f61cac839235b7bef976e618a32e004feb950a31bff1bdbf",
+  "manifest.json": "89bd2d0920292bc4b3a0ceadbc4224a4e3c75ffbdf3b5d6818a711443b4f266c",
   "maps-avis.js": "06f1c02959293be600442df1493d81e15404fdcf58c678e065b44b3b10902a63",
   "modules.js": "b2c72be7ff2cff8d61fdaefacdabb6804c79fb1d86ec226a8b1e0f0df2c8ed7c",
   "prix.js": "c3a691a53e0e40fca8a83f56f3712b8043f945814ca17fe302c6daa0353d1950",
@@ -43,5 +43,5 @@
   "tableau-de-bord.js": "232cd155730e683bd9614248481beaf895f4ce825de5e90d60e1bc58476d385a",
   "tarifs.json": "d52b3d2f8c784ae85e0c2dcf0c976190480e0c939c34073ad6c60924b01febbe"
  },
- "reference": "d0055c270415045e3e0e109b192ad141eba19425"
+ "reference": "38b35c1aed643cf90c24ff6e57a2baa5212ed4ea"
 }
