@@ -143,7 +143,9 @@
     .stat .n{font-size:11px;font-weight:800;color:#8088a8;text-transform:uppercase;letter-spacing:.05em} .stat .v{font-size:26px;font-weight:800;color:#111a66;letter-spacing:-.02em;margin:4px 0 2px} .stat .v.rouge{color:#b42318} .stat .p{font-size:12px;color:#6b7392}
     .gros{padding:0 20px 4px;display:flex;align-items:baseline;gap:8px;flex-wrap:wrap} .gros b{font-size:26px;font-weight:800;color:#111a66;letter-spacing:-.02em} .gros span{font-size:12.5px;color:#6b7392}
     .menus{display:flex;gap:6px;flex-wrap:wrap} .menus select{background:#f1f3f8;box-shadow:none;padding:6px 8px;font-size:12px;border-radius:9px}
-    .graph{padding:6px 16px 4px} .leg{display:flex;gap:6px 16px;flex-wrap:wrap;font-size:12px;color:#4a5578;padding:4px 20px 16px} .leg i{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:6px;vertical-align:-1px} .leg b{color:#111a66}
+    .graph{padding:6px 16px 4px} .leg{display:flex;align-items:center;gap:6px 16px;flex-wrap:wrap;font-size:12px;color:#4a5578;padding:4px 20px 16px} .leg i{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:6px;vertical-align:-1px} .leg b{color:#111a66}
+    .ans{margin-left:auto;position:relative;font-size:12px} .ans summary{cursor:pointer;list-style:none;font-weight:700;color:#4a5578;background:#f1f3f8;border-radius:9px;padding:4px 10px;user-select:none} .ans summary::-webkit-details-marker{display:none} .ans summary::after{content:' ▾'} .ans[open] summary{background:#111a66;color:#fff}
+    .ans > div{position:absolute;right:0;bottom:calc(100% + 6px);background:#fff;border-radius:12px;box-shadow:0 10px 28px rgba(17,26,102,.2);padding:8px 12px;display:flex;flex-direction:column;gap:6px;z-index:5;min-width:110px} .ans label{display:flex;align-items:center;gap:8px;font-weight:700;color:#111a66;cursor:pointer;white-space:nowrap}
     .anneau{display:flex;align-items:center;gap:24px;padding:4px 20px 18px;flex-wrap:wrap} .anneau table{width:auto;flex:1;min-width:220px} .anneau td{padding:6px 10px 6px 0;border-top:1px solid #eef1fa} .anneau tr:first-child td{border-top:0} .anneau tbody tr{cursor:default} .anneau tbody tr:hover td{background:none}
     .tuile{background:#fff;border:0;border-radius:14px;padding:10px 12px;text-align:left;cursor:pointer;box-shadow:0 1px 3px rgba(17,26,102,.06);font-family:inherit;border-top:3px solid var(--c);display:flex;flex-direction:column;gap:2px;min-width:0}
     .tuile b{font-size:21px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-weight:800;color:#111a66;letter-spacing:-.02em;line-height:1.1} .tuile span{font-size:12px;font-weight:600;color:#56608a;white-space:nowrap;overflow:hidden;text-overflow:ellipsis} .tuile:hover{box-shadow:0 4px 14px rgba(17,26,102,.12)} .tuile.zero b{color:#b3bad2}
@@ -193,8 +195,25 @@
   const abscisse = (n, i) => (n === 12 ? MOIS[i] : 'S' + (i + 1));
 
   /** Graphique d'Ulyss redessiné : [élément graphique, légende]. */
-  function graphique(g) {
-    const D = g.donnees.datasets, L = 640, H = 230, G = 44, B = 196;
+  // Années affichées sur les graphiques par année (28/11/2026, Guillaume) : l'année en cours et la précédente ; les années
+  // antérieures s'ajoutent par le petit menu « Années antérieures » du graphique. Choix gardé tant que l'écran reste ouvert.
+  const anneesVues = {}, menuOuvert = {};
+  const anDe = (d) => { const a = d.annee !== undefined ? d.annee : d.label; return /^\d{4}$/.test(String(a)) ? +a : null; };
+  function menuAnnees(cle, toutes, vues) {
+    const anciennes = toutes.slice(0, -2); if (!anciennes.length) return null;
+    const d = el('details', { class: 'ans' }, el('summary', {}, 'Années antérieures' + (vues.length > 2 ? ' (' + (vues.length - 2) + ')' : '')),
+      el('div', {}, anciennes.slice().reverse().map((a) => { const c = el('input', { type: 'checkbox', onchange: () => { anneesVues[cle] = toutes.filter((x) => (x === a ? c.checked : vues.indexOf(x) >= 0)); dessiner(); } }); c.checked = vues.indexOf(a) >= 0; return el('label', {}, c, String(a)); })));
+    d.open = !!menuOuvert[cle]; d.addEventListener('toggle', () => { menuOuvert[cle] = d.open; });
+    return d;
+  }
+  function graphique(g, cle) {
+    let D = g.donnees.datasets; const L = 640, H = 230, G = 44, B = 196;
+    let choixAns = null;
+    if (g.type !== 'doughnut' && D.length && D.every((d) => anDe(d) !== null)) {
+      const toutes = [...new Set(D.map(anDe))].sort((a, b) => a - b), vues = (anneesVues[cle] || toutes.slice(-2)).filter((a) => toutes.indexOf(a) >= 0);
+      D = D.filter((d) => vues.indexOf(anDe(d)) >= 0).sort((a, b) => anDe(a) - anDe(b));
+      choixAns = menuAnnees(cle, toutes, vues);
+    }
     if (g.type === 'doughnut') {
       // Ulyss mêle parfois deux lectures dans le même anneau (libre / occupé, puis l'occupé détaillé par société) : le détail est mis à part.
       const tous = D.map((d) => ({ nom: d.label, v: +(d.values || d.data || [0])[0] || 0, c: opaque(d.color) })), parSte = tous.filter((p) => NOMS_STE[String(p.nom).toLowerCase()]), mixte = parSte.length && parSte.length < tous.length;
@@ -212,14 +231,14 @@
       let code = grille(max);
       D.forEach((d, k) => { for (let i = 0; i < n; i++) { let y = B; (d.sets || []).forEach((s) => { const v = Math.max(0, +s.values[i] || 0), h = v / max * 170; if (h <= 0) return; y -= h; code += `<rect x="${(G + pas * i + pas * 0.09 + lb * k).toFixed(1)}" y="${y.toFixed(1)}" width="${Math.max(0.8, lb - (lb > 4 ? 1.2 : 0)).toFixed(1)}" height="${h.toFixed(1)}" fill="${opaque(s.color)}" opacity="${op(k).toFixed(2)}"><title>${abscisse(n, i)} ${ech(d.annee)} · ${ech(s.label)} : ${fr(v)}</title></rect>`; }); } });
       const series = [...new Map(D.flatMap((d) => (d.sets || []).map((s) => [s.label, opaque(s.color)]))).entries()];
-      return [el('div', { class: 'graph' }, dessin(code + etiq(n, pas), L, H)), el('div', { class: 'leg' }, series.map((s) => el('span', {}, el('i', { style: 'background:' + s[1] }), s[0])), D.map((d, k) => el('span', {}, el('i', { style: 'background:#111a66;opacity:' + op(k) }), el('b', {}, d.annee), d.header ? ' · ' + d.header : '')))];
+      return [el('div', { class: 'graph' }, dessin(code + etiq(n, pas), L, H)), el('div', { class: 'leg' }, series.map((s) => el('span', {}, el('i', { style: 'background:' + s[1] }), s[0])), D.map((d, k) => el('span', {}, el('i', { style: 'background:#111a66;opacity:' + op(k) }), el('b', {}, d.annee), d.header ? ' · ' + d.header : '')), choixAns)];
     }
     // « mixed » : une série par année, en courbe ou en barres
     const n = Math.max(1, ...D.map((d) => (d.data || []).length)), pas = (L - G) / n, max = Math.max(1, ...D.flatMap((d) => (d.data || []).map((v) => +v || 0)));
     const barres = D.filter((d) => d.type === 'bar'); let code = grille(max);
     barres.forEach((d, k) => { const lb = (pas * 0.7) / barres.length; (d.data || []).forEach((v, i) => { const h = (+v || 0) / max * 170; code += `<rect x="${(G + pas * i + pas * 0.15 + lb * k).toFixed(1)}" y="${(B - h).toFixed(1)}" width="${Math.max(1, lb - 1).toFixed(1)}" height="${h.toFixed(1)}" rx="2" fill="${opaque(d.color)}"><title>${abscisse(n, i)} ${ech(d.label)} : ${fr(+v || 0)}</title></rect>`; }); });
     D.filter((d) => d.type !== 'bar').forEach((d) => { const pts = (d.data || []).map((v, i) => [G + pas * (i + 0.5), B - (+v || 0) / max * 170, +v || 0]); code += `<polyline points="${pts.map((p) => p[0].toFixed(1) + ',' + p[1].toFixed(1)).join(' ')}" fill="none" stroke="${opaque(d.color)}" stroke-width="2.2" stroke-linejoin="round" stroke-linecap="round"/>` + pts.map((p, i) => `<circle cx="${p[0].toFixed(1)}" cy="${p[1].toFixed(1)}" r="3" fill="#fff" stroke="${opaque(d.color)}" stroke-width="1.8"><title>${abscisse(n, i)} ${ech(d.label)} : ${fr(p[2])}</title></circle>`).join(''); });
-    return [el('div', { class: 'graph' }, dessin(code + etiq(n, pas), L, H)), el('div', { class: 'leg' }, D.map((d) => el('span', {}, el('i', { style: 'background:' + opaque(d.color) }), el('b', {}, d.label), d.legendHeader ? ' · ' + beau(d.legendHeader) : '')))];
+    return [el('div', { class: 'graph' }, dessin(code + etiq(n, pas), L, H)), el('div', { class: 'leg' }, D.map((d) => el('span', {}, el('i', { style: 'background:' + opaque(d.color) }), el('b', {}, d.label), d.legendHeader ? ' · ' + beau(d.legendHeader) : '')), choixAns)];
   }
   /** Relit un seul bloc avec les paramètres d'un menu d'Ulyss (semaine / mois, CA / nombre, dépôt, année…). */
   async function relireBloc(b, href, rang, libelle) {
@@ -256,7 +275,7 @@
     else corps = [
       b.gros ? el('div', { class: 'gros' }, el('b', {}, beau(b.gros)), el('span', {}, b.note)) : null,
       b.chiffres.length ? el('div', { class: 'stats' }, b.chiffres.map((k) => el('div', { class: 'stat' }, el('div', { class: 'n' }, k.nom), el('div', { class: 'v' + (k.rouge ? ' rouge' : '') }, k.valeur), k.plus ? el('div', { class: 'p' }, k.plus) : null))) : null,
-      b.graphiques.flatMap((g) => graphique(g)),
+      b.graphiques.flatMap((g, i) => graphique(g, b.id + '/' + i)),
       !b.gros && !b.chiffres.length && !b.graphiques.length ? el('div', { class: 'rien' }, 'Ce bloc ne contient rien que l\'extension sache lire : ouvrez le tableau de bord d\'Ulyss pour le voir.') : null];
     return el('section', { class: 'carte' + (b.large || (b.chiffres.length && !b.graphiques.length) ? ' large' : ''), id: 'bloc-' + b.id, style: '--c:' + c },
       el('div', { class: 'tete' }, el('div', { class: 'ico' }, icone(b.id, b)), el('h2', {}, b.titre), menus, b.total !== null && b.total !== undefined ? el('span', { class: 'nb' }, b.total) : null),
