@@ -1,12 +1,13 @@
 {
- "version": "1.8.25",
- "date": "2026-11-27",
+ "version": "1.8.26",
+ "date": "2026-11-28",
  "fichiers": [
   "LISEZMOI.txt",
   "avis.js",
   "charge.js",
   "content.js",
   "demande-avis.js",
+  "deplacement.js",
   "engine.js",
   "fond.js",
   "logo.js",
@@ -21,15 +22,16 @@
   "avis.js": "aef6fb7abdd3aa291872d370512a387eb0a9f8a7b6a50e8c49891455bdc82f93",
   "charge.js": "56570d948766159a61c6756d28d68b385665d1ec4298666c197f4b9fb0a74850",
   "content.js": "e957b0643466a050463b5ff6b98d22d7da964a0deef9e25d74a0071ede759f9d",
-  "demande-avis.js": "de68168e1314460203eb3c1c7f4848b34ba6f94e6913ee9d3e6a7936b5c7cb92",
+  "demande-avis.js": "043c9cd05b7ca50c68e5e82747a86ccd0ba59555f965db8729b6ab2bd2a7d4b6",
+  "deplacement.js": "cee4f371c410bde0fc77c53342b1bf247a51794ca8c3536d7e734e6c08631abd",
   "engine.js": "c6fa6b1139b9ab90d511059d6abc6221779e9f9dc062433eb0a6b0b3308a0a7c",
-  "fond.js": "77d44a5ecb770753afbe4e19e54502778245123543686145ba8b3232f9ef4eda",
+  "fond.js": "1685e1a076a1fb7c9d509c5a6cc5b4bc2aa248b97cfc20b2b7bdac8d6f975490",
   "logo.js": "18cd3a742f30bea47ce2c56880e604af87f58e635a9e3f20035ba1e0cc6f741c",
-  "manifest.json": "3ecac483de4bf1677cc3da701424d86c626524c37cd9dc80aff883f164ebfd11",
+  "manifest.json": "4e9ab832f2fdc0a66c62af4fe1ba3688d9cd50ee57672243c277d31a72aefe7b",
   "maps-avis.js": "06f1c02959293be600442df1493d81e15404fdcf58c678e065b44b3b10902a63",
   "rappel.js": "5e14e110b7d4ca041dc3bc03cd631e84f81c541340bb0875c8b84978c33479c5",
   "rdv.js": "6d9f284cf0e1a4cf3cf33b393ea6898255ff626ba7078fc0a0f42e2672462650",
   "tarifs.json": "d52b3d2f8c784ae85e0c2dcf0c976190480e0c939c34073ad6c60924b01febbe"
  },
- "reference": "3786b8131b60c5883e9fe2d3eadcd8600df7a917"
+ "reference": "e7a456d4c1537dfd8d586f79f2ff6b078e098823"
 }
