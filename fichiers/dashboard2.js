@@ -183,7 +183,9 @@
   const fr = (n, dec) => Number(n).toLocaleString('fr-FR', { maximumFractionDigits: dec === undefined ? (Math.abs(n) >= 1000 ? 0 : 2) : dec });
   const court = (n) => { const a = Math.abs(n); return a >= 1e6 ? fr(n / 1e6, 2) + ' M' : a >= 10000 ? fr(n / 1000, 0) + ' k' : fr(n); };
   /** « 350224.65 € » → « 350 225 € » ; tout autre texte est rendu tel quel. */
-  const beau = (t) => { const m = String(t).match(/^(-?\d+(?:\.\d+)?)\s*(.*)$/); return m ? fr(+m[1]) + (m[2] ? ' ' + m[2] : '') : t; };
+  /** Nombre en tête d'un texte d'Ulyss (« 350224.65 € », « 123 456,78 € », « 24.5 ») → [nombre, suite] ou null. */
+  const nombreDe = (t) => { const x = String(t).trim(); let m = x.match(/^(-?\d+(?:\.\d+)?)\s*(\D*)$/); if (m) return [+m[1], m[2].trim()]; m = x.match(/^(-?\d{1,3}(?:[\s\u00a0\u202f]\d{3})*(?:,\d+)?)\s*(\D*)$/); return m ? [+m[1].replace(/[\s\u00a0\u202f]/g, '').replace(',', '.'), m[2].trim()] : null; };
+  const beau = (t) => { const m = nombreDe(t); return m ? fr(m[0]) + (m[1] ? ' ' + m[1] : '') : t; };
   const nomSte = (n) => NOMS_STE[String(n).toLowerCase()] || n;
   const opaque = (c) => (/^#[0-9a-f]{8}$/i.test(c) ? c.slice(0, 7) : c || '#111a66');
   const dessin = (code, l, h) => { const d = document.createElement('div'); d.innerHTML = `<svg viewBox="0 0 ${l} ${h}" width="100%" style="display:block" xmlns="http://www.w3.org/2000/svg" font-family="Manrope,system-ui,sans-serif">${code}</svg>`; return d.firstChild; };
@@ -194,10 +196,12 @@
   function graphique(g) {
     const D = g.donnees.datasets, L = 640, H = 230, G = 44, B = 196;
     if (g.type === 'doughnut') {
-      const parts = D.map((d) => ({ nom: d.label, v: +(d.values || d.data || [0])[0] || 0, c: opaque(d.color) })), tot = parts.reduce((s, p) => s + p.v, 0) || 1; let a = -Math.PI / 2;
+      // Ulyss mêle parfois deux lectures dans le même anneau (libre / occupé, puis l'occupé détaillé par société) : le détail est mis à part.
+      const tous = D.map((d) => ({ nom: d.label, v: +(d.values || d.data || [0])[0] || 0, c: opaque(d.color) })), parSte = tous.filter((p) => NOMS_STE[String(p.nom).toLowerCase()]), mixte = parSte.length && parSte.length < tous.length;
+      const parts = mixte ? tous.filter((p) => parSte.indexOf(p) < 0) : tous, tot = parts.reduce((s, p) => s + p.v, 0) || 1; let a = -Math.PI / 2;
       const arcs = parts.filter((p) => p.v > 0).map((p) => { const b = a + p.v / tot * Math.PI * 2 - 0.0001, gr = b - a > Math.PI ? 1 : 0, pt = (r, t) => (90 + r * Math.cos(t)).toFixed(2) + ' ' + (90 + r * Math.sin(t)).toFixed(2); const ch = `<path d="M${pt(80, a)}A80 80 0 ${gr} 1 ${pt(80, b)}L${pt(52, b)}A52 52 0 ${gr} 0 ${pt(52, a)}Z" fill="${p.c}"><title>${ech(p.nom)} : ${fr(p.v)} (${fr(p.v / tot * 100, 1)} %)</title></path>`; a = b + 0.0001; return ch; }).join('');
       const svg = dessin(arcs + `<text x="90" y="88" text-anchor="middle" font-size="20" font-weight="800" fill="#111a66">${ech(court(tot))}</text><text x="90" y="106" text-anchor="middle" font-size="10" fill="#6b7392">au total</text>`, 180, 180); svg.style.width = '170px'; svg.style.flex = 'none';
-      return [el('div', { class: 'anneau' }, svg, el('table', {}, el('tbody', {}, parts.map((p) => el('tr', {}, el('td', {}, el('i', { style: 'display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:8px;background:' + p.c }), p.nom), el('td', { class: 'd montant' }, fr(p.v)), el('td', { class: 'd' }, fr(p.v / tot * 100, 1) + ' %')))))), null];
+      return [el('div', { class: 'anneau' }, svg, el('table', {}, el('tbody', {}, parts.map((p) => el('tr', {}, el('td', {}, el('i', { style: 'display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:8px;background:' + p.c }), p.nom), el('td', { class: 'd montant' }, fr(p.v)), el('td', { class: 'd' }, fr(p.v / tot * 100, 1) + ' %'))), mixte ? [el('tr', {}, el('td', { colspan: '3', style: 'font-size:10.5px;font-weight:800;color:#8088a8;text-transform:uppercase;letter-spacing:.05em;padding-top:12px' }, 'Par société')), parSte.map((p) => el('tr', {}, el('td', {}, el('span', { class: 'ste', style: 'background:' + (STES[nomSte(p.nom)] || p.c) + ';margin-right:8px' }, nomSte(p.nom)), p.nom), el('td', { class: 'd montant' }, fr(p.v)), el('td', { class: 'd' }, fr(p.v / tot * 100, 1) + ' %')))] : null))), null];
     }
     const grille = (max) => [0, 0.5, 1].map((k) => `<line x1="${G}" x2="${L}" y1="${B - k * 170}" y2="${B - k * 170}" stroke="#eef1fa"/><text x="${G - 6}" y="${B - k * 170 + 3.5}" text-anchor="end" font-size="9.5" fill="#8088a8">${ech(court(max * k))}</text>`).join('');
     const etiq = (n, pas) => Array.from({ length: n }, (_, i) => (n <= 12 || i % 4 === 0 ? `<text x="${G + pas * (i + 0.5)}" y="${B + 15}" text-anchor="middle" font-size="9.5" fill="#8088a8">${abscisse(n, i)}</text>` : '')).join('');
@@ -218,11 +222,11 @@
     return [el('div', { class: 'graph' }, dessin(code + etiq(n, pas), L, H)), el('div', { class: 'leg' }, D.map((d) => el('span', {}, el('i', { style: 'background:' + opaque(d.color) }), el('b', {}, d.label), d.legendHeader ? ' · ' + beau(d.legendHeader) : '')))];
   }
   /** Relit un seul bloc avec les paramètres d'un menu d'Ulyss (semaine / mois, CA / nombre, dépôt, année…). */
-  async function relireBloc(b, href) {
+  async function relireBloc(b, href, rang, libelle) {
     try {
       const u = new URL(href, location.origin), base = new URL(b.src, location.origin);
       base.searchParams.forEach((v, k) => { if (!u.searchParams.has(k)) u.searchParams.set(k, v); });
-      const n = lireBloc(b.id, await html(u.pathname + u.search, b.id)); n.src = b.src; n.large = b.large;
+      const n = lireBloc(b.id, await html(u.pathname + u.search, b.id)); n.src = b.src; n.large = b.large; n.choisi = { ...(b.choisi || {}), [rang]: libelle };
       blocs[blocs.indexOf(b)] = n;
     } catch (e) { b.erreur = String(e.message || e); }
     dessiner();
@@ -239,7 +243,7 @@
       return el('td', { class: (droite(col.genre) ? 'd ' : '') + col.genre + (col.genre === 'montant' && /^\s*[-−]/.test(x.t) ? ' neg' : '') }, x.t);
     };
     const aller = (l) => (e) => { if (!l.href || (e.target.closest && e.target.closest('a'))) return; if (e.ctrlKey || e.metaKey) window.open(l.href, '_blank'); else location.href = l.href; };
-    const menus = b.menus && b.menus.length ? el('div', { class: 'menus' }, b.menus.map((m) => { const s = el('select', { 'aria-label': 'Option du graphique', onchange: () => { s.disabled = true; relireBloc(b, s.value); } }, el('option', { value: '' }, m.courant || 'Choisir'), m.choix.filter((x) => x[0] !== m.courant).map((x) => el('option', { value: x[1] }, x[0]))); return s; })) : null;
+    const menus = b.menus && b.menus.length ? el('div', { class: 'menus' }, b.menus.map((m, rang) => { const ici = (b.choisi || {})[rang] || m.courant || 'Choisir'; const s = el('select', { 'aria-label': 'Option du graphique', onchange: () => { s.disabled = true; relireBloc(b, s.value, rang, s.options[s.selectedIndex].textContent); } }, el('option', { value: '' }, ici), m.choix.filter((x) => x[0] !== ici).map((x) => el('option', { value: x[1] }, x[0]))); return s; })) : null;
     let corps;
     if (b.erreur) corps = el('div', { class: 'rien err' }, 'Bloc illisible : ' + b.erreur + '.');
     else if (b.table) corps = !b.lignes.length ? el('div', { class: 'rien' }, el('b', {}, 'Rien à traiter'), 'Ce bloc est vide dans Ulyss.') :
@@ -262,10 +266,10 @@
   /** Ce que montre la tuile du bandeau : le compteur d'une liste, sinon le chiffre principal du bloc. */
   function resume(b) {
     if (b.total !== null && b.total !== undefined) return String(b.total);
-    const t = b.gros || (b.chiffres[0] || {}).valeur || '', m = String(t).match(/^(-?\d+(?:\.\d+)?)\s*(\S*)$/);
-    if (m) return court(+m[1]) + (m[2] ? (/^[kM]$/.test(court(+m[1]).slice(-1)) ? '' : ' ') + m[2] : '');
+    const t = b.gros || (b.chiffres[0] || {}).valeur || '', m = nombreDe(t);
+    if (m && !/^[KM]\b/i.test(m[1])) return court(m[0]) + (m[1] ? (/[kM]$/.test(court(m[0])) ? '' : ' ') + m[1] : '');
     if (t) return t;
-    const g = b.graphiques[0]; if (g && g.type === 'doughnut') { const p = g.donnees.datasets.map((d) => +(d.values || [0])[0] || 0), tot = p.reduce((s, v) => s + v, 0); if (tot && /occupation/.test(b.id)) return fr((1 - (g.donnees.datasets.filter((d) => /libre/i.test(d.label)).reduce((s, d) => s + (+(d.values || [0])[0] || 0), 0)) / tot) * 100, 0) + ' %'; }
+    const g = b.graphiques[0]; if (g && g.type === 'doughnut') { const p = g.donnees.datasets.map((d) => +(d.values || [0])[0] || 0), tot = p.reduce((s, v) => s + v, 0); const occ = g.donnees.datasets.filter((d) => /^occup/i.test(d.label)).reduce((s, d) => s + (+(d.values || [0])[0] || 0), 0), princ = g.donnees.datasets.filter((d) => !NOMS_STE[String(d.label).toLowerCase()]).reduce((s, d) => s + (+(d.values || [0])[0] || 0), 0); if (princ && occ && /occupation/.test(b.id)) return fr(occ / princ * 100, 0) + ' %'; }
     return '›';
   }
   /** Badges de société renseignés sur place, sans redessiner l'écran (le défilement n'est pas interrompu). */
