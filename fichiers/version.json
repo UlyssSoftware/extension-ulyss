@@ -1,10 +1,11 @@
 {
- "version": "1.8.31",
+ "version": "1.8.32",
  "date": "2026-11-28",
  "fichiers": [
   "LISEZMOI.txt",
   "avis.js",
   "charge.js",
+  "commercial.js",
   "content.js",
   "demande-avis.js",
   "deplacement.js",
@@ -14,6 +15,7 @@
   "manifest.json",
   "maps-avis.js",
   "modules.js",
+  "prix.js",
   "rappel.js",
   "rdv.js",
   "tableau-de-bord.js",
@@ -23,19 +25,21 @@
   "LISEZMOI.txt": "0648aecbaf0c17101d9c188c32da37ac72395849172b8c75de17fc5aac3c58ce",
   "avis.js": "f9a1e1744cd158528fcad99020c25b85815c5e34b2fc5efc2158d75e7cb73fb6",
   "charge.js": "c4e31f4f546f1ac2dd18c3f85dc53450a086347a22a33c823715d8cec52b1e0a",
-  "content.js": "323840c4511744e7e7f72ea8ed2e07f6974a2e2223793d41c9fa4768a4de1b94",
+  "commercial.js": "2be35c87c376e692917010db8b61ff4369f266fd7b9e27ca050781ab415085bf",
+  "content.js": "e33a7f3f9dcd2f687a23ea5ab061940200180f65382d6cf95e2ba8276def2734",
   "demande-avis.js": "967b092262375bf5b1f4bd4ec610f4bc3756af406598614f03e26c8747923c6f",
   "deplacement.js": "cf1ddf48eb7e940ea6b1ee1472be94ce21fd57502ce282c97dd61b4b6489a1c4",
   "engine.js": "c6fa6b1139b9ab90d511059d6abc6221779e9f9dc062433eb0a6b0b3308a0a7c",
-  "fond.js": "75b85b976a5873d25b9c283f067e1e4af79e8d76d9486c663b91042d433f5726",
+  "fond.js": "eaf3c59506360860f272ae51157d8a675269b65d7223076aab456a8b2ecff306",
   "logo.js": "c7573bc82edeb570fdfa36c8ee8163646959ad425a551d873dbbd66462622959",
-  "manifest.json": "88ce689c89da9b483ccaf975343c012613b04d4711f5121724679dc5d46314f9",
+  "manifest.json": "3ea413b29fc8195911f15b6f068cd6c89b0fb2d205d6e05dfe2d4192a257ac01",
   "maps-avis.js": "06f1c02959293be600442df1493d81e15404fdcf58c678e065b44b3b10902a63",
-  "modules.js": "415c6e1ac304c9cc51bbd5aa7ad5883c59dd411aa41f120ab720675449c6ff6f",
+  "modules.js": "bd7a3afdbc7310227dd1386c8a4af1d7c8f55a261e149439c9867967ea568922",
+  "prix.js": "c3a691a53e0e40fca8a83f56f3712b8043f945814ca17fe302c6daa0353d1950",
   "rappel.js": "6e54c424d5ba5d70cfd9f30958df13935f9b5e2500ce668e8f21456c4785dfbd",
   "rdv.js": "9ab735a7d4d2e1ff99c885d4b9da670dced7178ffd5ce1828d44174c31f47c44",
   "tableau-de-bord.js": "232cd155730e683bd9614248481beaf895f4ce825de5e90d60e1bc58476d385a",
   "tarifs.json": "d52b3d2f8c784ae85e0c2dcf0c976190480e0c939c34073ad6c60924b01febbe"
  },
- "reference": "0d1b1d0da1abf30bbfbc6fb8f04d17b172ca8fe0"
+ "reference": "ed3712992085dab3d31127d465d441e71126f9b0"
 }
